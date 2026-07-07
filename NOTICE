@@ -1,0 +1,9 @@
+curtain-privacy is a fork of Rampart by National Design Studio.
+
+Upstream: https://github.com/nationaldesignstudio/rampart
+Model:    https://huggingface.co/nationaldesignstudio/rampart
+License:  CC-BY-4.0 (see LICENSE)
+
+The contents of src/ and eval/bench/ are derived from
+@nationaldesignstudio/rampart v0.1.3 and remain under CC-BY-4.0.
+Attribution: © 2026 National Design Studio.
