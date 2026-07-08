@@ -15,12 +15,11 @@ import { KEEP_LABELS, shouldRedact, type PiiLabel, type Span } from "./types";
  * heuristics (validator-backed, so most trustworthy). Biased to *keep* a
  * redaction rather than drop one — recall over precision, per the threat model.
  *
- * On partial overlap (neither span contains the other) the previous span
- * covers bytes the winner does not. Taking only the winner exposes those
- * bytes; we take the byte-union under the preferred label so no detected
- * bytes are silently dropped. Full containment still collapses to the winner.
+ * On any overlap the merged span covers the byte-union; the label follows
+ * default-deny so a union never drops redact-class bytes. A redact-class span
+ * always beats an overlapping keep-class span for the union label.
  */
-export function mergeSpans(spans: readonly Span[]): Span[] {
+export function mergeSpans(spans: readonly Span[], keepLabels: ReadonlySet<PiiLabel> = KEEP_LABELS): Span[] {
   const sorted = [...spans].sort((a, b) => a.start - b.start || b.end - a.end);
   const merged: Span[] = [];
   for (const span of sorted) {
@@ -29,20 +28,22 @@ export function mergeSpans(spans: readonly Span[]): Span[] {
       merged.push(span);
       continue;
     }
-    const winner = preferred(prev, span);
-    const prevContains = prev.start <= span.start && prev.end >= span.end;
-    const spanContains = span.start <= prev.start && span.end >= prev.end;
-    if (prevContains || spanContains) {
-      merged[merged.length - 1] = winner;
-    } else {
-      // Partial overlap: union the bytes under the preferred label so the
-      // loser's exclusive range is not silently exposed.
-      const start = Math.min(prev.start, span.start);
-      const end = Math.max(prev.end, span.end);
-      merged[merged.length - 1] = { ...winner, start, end, text: winner.text };
-    }
+    // Any overlap: cover the byte-union so no detected byte is dropped. The
+    // label is default-deny — a redact-class span beats an overlapping
+    // keep-class one — so a union can never re-expose bytes a detector redacted.
+    const winner = preferredRedactFirst(prev, span, keepLabels);
+    const start = Math.min(prev.start, span.start);
+    const end = Math.max(prev.end, span.end);
+    merged[merged.length - 1] = { ...winner, start, end, text: winner.text };
   }
   return merged;
+}
+
+function preferredRedactFirst(a: Span, b: Span, keepLabels: ReadonlySet<PiiLabel>): Span {
+  const aRedact = shouldRedact(a.label, keepLabels);
+  const bRedact = shouldRedact(b.label, keepLabels);
+  if (aRedact !== bRedact) return aRedact ? a : b;
+  return preferred(a, b);
 }
 
 function preferred(a: Span, b: Span): Span {
@@ -58,7 +59,7 @@ function preferred(a: Span, b: Span): Span {
  * left so callers can splice from the end and keep earlier offsets valid.
  */
 export function applyPolicy(spans: readonly Span[], keepLabels: ReadonlySet<PiiLabel> = KEEP_LABELS): Span[] {
-  return mergeSpans(spans)
+  return mergeSpans(spans, keepLabels)
     .filter((s) => shouldRedact(s.label, keepLabels))
     .sort((a, b) => b.start - a.start);
 }

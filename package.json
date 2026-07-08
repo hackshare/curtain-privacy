@@ -1,22 +1,39 @@
 {
   "name": "curtain-privacy",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "license": "CC-BY-4.0",
+  "version": "0.1.0",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "devDependencies": {
+    "@huggingface/transformers": "3.7.5",
+    "@types/bun": "1.3.14",
+    "lefthook": "^2.1.9",
+    "tsup": "8.5.1",
+    "typescript": "6.0.3",
+    "vitest": "4.1.9"
+  },
+  "peerDependencies": {
+    "@huggingface/transformers": ">=3.7.5 <4"
+  },
+  "license": "MIT",
+  "packageManager": "bun@1.3.14",
   "scripts": {
     "bench:fetch": "bun eval/bench/fetch.ts",
     "bench": "bun eval/bench/run.ts",
+    "build": "tsup",
+    "prepare": "lefthook install",
+    "prepublishOnly": "bun run build",
     "test": "vitest run",
-    "type-check": "tsc -p tsconfig.json --noEmit"
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "eval:real:check": "bun eval/real/check.ts",
+    "eval:adversarial": "bun eval/adversarial/run.ts"
   },
-  "dependencies": {
-    "@huggingface/transformers": "3.7.5"
-  },
-  "devDependencies": {
-    "@types/bun": "1.3.14",
-    "typescript": "5.9.2",
-    "vitest": "4.1.8"
-  },
-  "packageManager": "bun@1.3.14"
+  "type": "module"
 }

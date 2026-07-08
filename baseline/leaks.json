@@ -1,0 +1,1561 @@
+{
+  "overall": {
+    "CREDIT_CARD": {
+      "char_recall": 0.9540071579815241,
+      "protected_rate": 0.954258200421306,
+      "protected_rate_wilson95": [
+        0.9489673485292919,
+        0.9590242042319047
+      ],
+      "private_total": 6646,
+      "fully_protected": 6342,
+      "leaked": 304,
+      "causes": {
+        "undetected": 294,
+        "keep_misroute": 0,
+        "under_cover": 10
+      }
+    },
+    "EMAIL": {
+      "char_recall": 0.9989602571995349,
+      "protected_rate": 0.996691270043268,
+      "protected_rate_wilson95": [
+        0.9956639960397405,
+        0.9974757821626045
+      ],
+      "private_total": 15716,
+      "fully_protected": 15664,
+      "leaked": 52,
+      "causes": {
+        "undetected": 0,
+        "keep_misroute": 0,
+        "under_cover": 52
+      }
+    },
+    "SURNAME": {
+      "char_recall": 0.997459204906363,
+      "protected_rate": 0.9946261043810912,
+      "protected_rate_wilson95": [
+        0.9935687877263559,
+        0.9955103794779099
+      ],
+      "private_total": 21958,
+      "fully_protected": 21840,
+      "leaked": 118,
+      "causes": {
+        "undetected": 39,
+        "keep_misroute": 9,
+        "under_cover": 70
+      }
+    },
+    "DRIVERS_LICENSE": {
+      "char_recall": 0.9996785787336002,
+      "protected_rate": 0.9995030644359781,
+      "protected_rate_wilson95": [
+        0.9985398369776006,
+        0.9998309860547399
+      ],
+      "private_total": 6037,
+      "fully_protected": 6034,
+      "leaked": 3,
+      "causes": {
+        "undetected": 2,
+        "keep_misroute": 1,
+        "under_cover": 0
+      }
+    },
+    "PASSPORT": {
+      "char_recall": 1,
+      "protected_rate": 1,
+      "protected_rate_wilson95": [
+        0.9990973348256194,
+        1
+      ],
+      "private_total": 4252,
+      "fully_protected": 4252,
+      "leaked": 0,
+      "causes": {
+        "undetected": 0,
+        "keep_misroute": 0,
+        "under_cover": 0
+      }
+    },
+    "GIVEN_NAME": {
+      "char_recall": 0.9943769426391637,
+      "protected_rate": 0.990093539093026,
+      "protected_rate_wilson95": [
+        0.9887975901110151,
+        0.9912408944829614
+      ],
+      "private_total": 25337,
+      "fully_protected": 25086,
+      "leaked": 251,
+      "causes": {
+        "undetected": 156,
+        "keep_misroute": 20,
+        "under_cover": 75
+      }
+    },
+    "STREET_NAME": {
+      "char_recall": 0.9945685667653174,
+      "protected_rate": 0.9862810896170549,
+      "protected_rate_wilson95": [
+        0.9838247228558935,
+        0.98836884417854
+      ],
+      "private_total": 10132,
+      "fully_protected": 9993,
+      "leaked": 139,
+      "causes": {
+        "undetected": 27,
+        "keep_misroute": 17,
+        "under_cover": 95
+      }
+    },
+    "BUILDING_NUMBER": {
+      "char_recall": 0.9794991017647681,
+      "protected_rate": 0.976061154697244,
+      "protected_rate_wilson95": [
+        0.9728674766958264,
+        0.978887073668217
+      ],
+      "private_total": 9942,
+      "fully_protected": 9704,
+      "leaked": 238,
+      "causes": {
+        "undetected": 168,
+        "keep_misroute": 17,
+        "under_cover": 53
+      }
+    },
+    "GOVERNMENT_ID": {
+      "char_recall": 0.9995490484923188,
+      "protected_rate": 0.9995668495524112,
+      "protected_rate_wilson95": [
+        0.9987271415010665,
+        0.999852681737606
+      ],
+      "private_total": 6926,
+      "fully_protected": 6923,
+      "leaked": 3,
+      "causes": {
+        "undetected": 3,
+        "keep_misroute": 0,
+        "under_cover": 0
+      }
+    },
+    "TAX_ID": {
+      "char_recall": 0.9989968521913591,
+      "protected_rate": 0.9989132403550082,
+      "protected_rate_wilson95": [
+        0.9976308169551983,
+        0.9995018429205166
+      ],
+      "private_total": 5521,
+      "fully_protected": 5515,
+      "leaked": 6,
+      "causes": {
+        "undetected": 5,
+        "keep_misroute": 0,
+        "under_cover": 1
+      }
+    },
+    "PHONE": {
+      "char_recall": 0.9995287711398503,
+      "protected_rate": 0.9967348341639457,
+      "protected_rate_wilson95": [
+        0.9955217322256871,
+        0.9976201088383589
+      ],
+      "private_total": 11638,
+      "fully_protected": 11600,
+      "leaked": 38,
+      "causes": {
+        "undetected": 0,
+        "keep_misroute": 0,
+        "under_cover": 38
+      }
+    },
+    "SSN": {
+      "char_recall": 0.9629001850666759,
+      "protected_rate": 0.9444983504754512,
+      "protected_rate_wilson95": [
+        0.9379093500467313,
+        0.9504250909413341
+      ],
+      "private_total": 5153,
+      "fully_protected": 4867,
+      "leaked": 286,
+      "causes": {
+        "undetected": 76,
+        "keep_misroute": 5,
+        "under_cover": 205
+      }
+    }
+  },
+  "by_language": {
+    "de": {
+      "GIVEN_NAME": {
+        "char_recall": 0.9900893837227537,
+        "protected_rate": 0.9860782768584188,
+        "protected_rate_wilson95": [
+          0.9818361009748491,
+          0.9893404496327647
+        ],
+        "private_total": 3807,
+        "fully_protected": 3754,
+        "leaked": 53,
+        "causes": {
+          "undetected": 42,
+          "keep_misroute": 6,
+          "under_cover": 5
+        }
+      },
+      "SURNAME": {
+        "char_recall": 0.9955998410265146,
+        "protected_rate": 0.9929224417575936,
+        "protected_rate_wilson95": [
+          0.9894900371166967,
+          0.995239265128215
+        ],
+        "private_total": 3391,
+        "fully_protected": 3367,
+        "leaked": 24,
+        "causes": {
+          "undetected": 10,
+          "keep_misroute": 2,
+          "under_cover": 12
+        }
+      },
+      "EMAIL": {
+        "char_recall": 0.9985793436567695,
+        "protected_rate": 0.996039603960396,
+        "protected_rate_wilson95": [
+          0.9927247562544059,
+          0.9978473697340309
+        ],
+        "private_total": 2525,
+        "fully_protected": 2515,
+        "leaked": 10,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 10
+        }
+      },
+      "DRIVERS_LICENSE": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9957308041770908,
+          1
+        ],
+        "private_total": 896,
+        "fully_protected": 896,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "STREET_NAME": {
+        "char_recall": 0.9928884559181685,
+        "protected_rate": 0.9863013698630136,
+        "protected_rate_wilson95": [
+          0.9793453626522499,
+          0.9909364340164408
+        ],
+        "private_total": 1606,
+        "fully_protected": 1584,
+        "leaked": 22,
+        "causes": {
+          "undetected": 7,
+          "keep_misroute": 2,
+          "under_cover": 13
+        }
+      },
+      "BUILDING_NUMBER": {
+        "char_recall": 0.9838882921589689,
+        "protected_rate": 0.9818409517845961,
+        "protected_rate_wilson95": [
+          0.9740421717593066,
+          0.9873271479785111
+        ],
+        "private_total": 1597,
+        "fully_protected": 1568,
+        "leaked": 29,
+        "causes": {
+          "undetected": 23,
+          "keep_misroute": 4,
+          "under_cover": 2
+        }
+      },
+      "TAX_ID": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9959168472142389,
+          1
+        ],
+        "private_total": 937,
+        "fully_protected": 937,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "CREDIT_CARD": {
+        "char_recall": 0.9905903506143242,
+        "protected_rate": 0.9904030710172744,
+        "protected_rate_wilson95": [
+          0.9824244873857443,
+          0.9947789438030704
+        ],
+        "private_total": 1042,
+        "fully_protected": 1032,
+        "leaked": 10,
+        "causes": {
+          "undetected": 9,
+          "keep_misroute": 0,
+          "under_cover": 1
+        }
+      },
+      "PHONE": {
+        "char_recall": 0.9998113118543327,
+        "protected_rate": 0.998914223669924,
+        "protected_rate_wilson95": [
+          0.996049551460178,
+          0.9997021966854917
+        ],
+        "private_total": 1842,
+        "fully_protected": 1840,
+        "leaked": 2,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 2
+        }
+      },
+      "GOVERNMENT_ID": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9959555361651878,
+          0.9999999999999999
+        ],
+        "private_total": 946,
+        "fully_protected": 946,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "SSN": {
+        "char_recall": 0.9713918354226937,
+        "protected_rate": 0.93125,
+        "protected_rate_wilson95": [
+          0.9115760034957362,
+          0.9468020650192549
+        ],
+        "private_total": 800,
+        "fully_protected": 745,
+        "leaked": 55,
+        "causes": {
+          "undetected": 2,
+          "keep_misroute": 1,
+          "under_cover": 52
+        }
+      },
+      "PASSPORT": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9937721450693339,
+          1
+        ],
+        "private_total": 613,
+        "fully_protected": 613,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      }
+    },
+    "en": {
+      "GIVEN_NAME": {
+        "char_recall": 0.9972341970673219,
+        "protected_rate": 0.9925064599483204,
+        "protected_rate_wilson95": [
+          0.9903258326596921,
+          0.9941984375681495
+        ],
+        "private_total": 7740,
+        "fully_protected": 7682,
+        "leaked": 58,
+        "causes": {
+          "undetected": 17,
+          "keep_misroute": 4,
+          "under_cover": 37
+        }
+      },
+      "SURNAME": {
+        "char_recall": 0.998680856109563,
+        "protected_rate": 0.9954128440366973,
+        "protected_rate_wilson95": [
+          0.9934591354835022,
+          0.996784882647988
+        ],
+        "private_total": 6540,
+        "fully_protected": 6510,
+        "leaked": 30,
+        "causes": {
+          "undetected": 9,
+          "keep_misroute": 1,
+          "under_cover": 20
+        }
+      },
+      "PASSPORT": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9971198978949223,
+          0.9999999999999998
+        ],
+        "private_total": 1330,
+        "fully_protected": 1330,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "STREET_NAME": {
+        "char_recall": 0.9985642841760187,
+        "protected_rate": 0.9931260229132569,
+        "protected_rate_wilson95": [
+          0.9895138409367116,
+          0.9954995706763644
+        ],
+        "private_total": 3055,
+        "fully_protected": 3034,
+        "leaked": 21,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 1,
+          "under_cover": 20
+        }
+      },
+      "BUILDING_NUMBER": {
+        "char_recall": 0.990009464717636,
+        "protected_rate": 0.9880871341048332,
+        "protected_rate_wilson95": [
+          0.9834776990771519,
+          0.9914218332430111
+        ],
+        "private_total": 2938,
+        "fully_protected": 2903,
+        "leaked": 35,
+        "causes": {
+          "undetected": 22,
+          "keep_misroute": 6,
+          "under_cover": 7
+        }
+      },
+      "CREDIT_CARD": {
+        "char_recall": 0.9152195152699423,
+        "protected_rate": 0.9170460293373799,
+        "protected_rate_wilson95": [
+          0.9040639827608399,
+          0.9284104563866418
+        ],
+        "private_total": 1977,
+        "fully_protected": 1813,
+        "leaked": 164,
+        "causes": {
+          "undetected": 164,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "TAX_ID": {
+        "char_recall": 0.9971428571428571,
+        "protected_rate": 0.9968691296180339,
+        "protected_rate_wilson95": [
+          0.9926915677224523,
+          0.9986619803112821
+        ],
+        "private_total": 1597,
+        "fully_protected": 1592,
+        "leaked": 5,
+        "causes": {
+          "undetected": 4,
+          "keep_misroute": 0,
+          "under_cover": 1
+        }
+      },
+      "GOVERNMENT_ID": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9981591319628667,
+          1
+        ],
+        "private_total": 2083,
+        "fully_protected": 2083,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "EMAIL": {
+        "char_recall": 0.9991769296427265,
+        "protected_rate": 0.9970104633781763,
+        "protected_rate_wilson95": [
+          0.9949878381381929,
+          0.9982183329429888
+        ],
+        "private_total": 4683,
+        "fully_protected": 4669,
+        "leaked": 14,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 14
+        }
+      },
+      "PHONE": {
+        "char_recall": 0.9994954973135232,
+        "protected_rate": 0.9962460294542305,
+        "protected_rate_wilson95": [
+          0.9935874606984714,
+          0.9978048198141429
+        ],
+        "private_total": 3463,
+        "fully_protected": 3450,
+        "leaked": 13,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 13
+        }
+      },
+      "DRIVERS_LICENSE": {
+        "char_recall": 0.9996077085274359,
+        "protected_rate": 0.9994425863991081,
+        "protected_rate_wilson95": [
+          0.9968491719135505,
+          0.9999015985658951
+        ],
+        "private_total": 1794,
+        "fully_protected": 1793,
+        "leaked": 1,
+        "causes": {
+          "undetected": 1,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "SSN": {
+        "char_recall": 0.9959613442953988,
+        "protected_rate": 0.9950669485553206,
+        "protected_rate_wilson95": [
+          0.9898521576970417,
+          0.9976084282177923
+        ],
+        "private_total": 1419,
+        "fully_protected": 1412,
+        "leaked": 7,
+        "causes": {
+          "undetected": 4,
+          "keep_misroute": 1,
+          "under_cover": 2
+        }
+      }
+    },
+    "es": {
+      "GIVEN_NAME": {
+        "char_recall": 0.9941491395793499,
+        "protected_rate": 0.9903938520653218,
+        "protected_rate_wilson95": [
+          0.986319815355443,
+          0.9932629047925813
+        ],
+        "private_total": 3123,
+        "fully_protected": 3093,
+        "leaked": 30,
+        "causes": {
+          "undetected": 22,
+          "keep_misroute": 3,
+          "under_cover": 5
+        }
+      },
+      "STREET_NAME": {
+        "char_recall": 0.9962901418247865,
+        "protected_rate": 0.9868312757201646,
+        "protected_rate_wilson95": [
+          0.9787155492731615,
+          0.9918781685651531
+        ],
+        "private_total": 1215,
+        "fully_protected": 1199,
+        "leaked": 16,
+        "causes": {
+          "undetected": 1,
+          "keep_misroute": 0,
+          "under_cover": 15
+        }
+      },
+      "BUILDING_NUMBER": {
+        "char_recall": 0.9917987971569163,
+        "protected_rate": 0.9892384105960265,
+        "protected_rate_wilson95": [
+          0.9816747645004668,
+          0.993700235004419
+        ],
+        "private_total": 1208,
+        "fully_protected": 1195,
+        "leaked": 13,
+        "causes": {
+          "undetected": 10,
+          "keep_misroute": 0,
+          "under_cover": 3
+        }
+      },
+      "GOVERNMENT_ID": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9963020348819301,
+          1
+        ],
+        "private_total": 1035,
+        "fully_protected": 1035,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "DRIVERS_LICENSE": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9952209490028883,
+          1
+        ],
+        "private_total": 800,
+        "fully_protected": 800,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "CREDIT_CARD": {
+        "char_recall": 0.9480006322111585,
+        "protected_rate": 0.9465648854961832,
+        "protected_rate_wilson95": [
+          0.9285585857741094,
+          0.9602272163411503
+        ],
+        "private_total": 786,
+        "fully_protected": 744,
+        "leaked": 42,
+        "causes": {
+          "undetected": 38,
+          "keep_misroute": 0,
+          "under_cover": 4
+        }
+      },
+      "SURNAME": {
+        "char_recall": 0.996719089904069,
+        "protected_rate": 0.9948148148148148,
+        "protected_rate_wilson95": [
+          0.99131479986362,
+          0.9969087706295627
+        ],
+        "private_total": 2700,
+        "fully_protected": 2686,
+        "leaked": 14,
+        "causes": {
+          "undetected": 5,
+          "keep_misroute": 2,
+          "under_cover": 7
+        }
+      },
+      "EMAIL": {
+        "char_recall": 0.9986434546687768,
+        "protected_rate": 0.9958137100994244,
+        "protected_rate_wilson95": [
+          0.9917607413815609,
+          0.9978772526958605
+        ],
+        "private_total": 1911,
+        "fully_protected": 1903,
+        "leaked": 8,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 8
+        }
+      },
+      "PHONE": {
+        "char_recall": 0.9994554695062924,
+        "protected_rate": 0.995850622406639,
+        "protected_rate_wilson95": [
+          0.9909765814865137,
+          0.9980969835153459
+        ],
+        "private_total": 1446,
+        "fully_protected": 1440,
+        "leaked": 6,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 6
+        }
+      },
+      "SSN": {
+        "char_recall": 0.9979258491055224,
+        "protected_rate": 0.9971387696709585,
+        "protected_rate_wilson95": [
+          0.9896279924302767,
+          0.9992150128784587
+        ],
+        "private_total": 699,
+        "fully_protected": 697,
+        "leaked": 2,
+        "causes": {
+          "undetected": 1,
+          "keep_misroute": 0,
+          "under_cover": 1
+        }
+      },
+      "TAX_ID": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9940701554207079,
+          1
+        ],
+        "private_total": 644,
+        "fully_protected": 644,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "PASSPORT": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9926804582563578,
+          1
+        ],
+        "private_total": 521,
+        "fully_protected": 521,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      }
+    },
+    "fr": {
+      "GIVEN_NAME": {
+        "char_recall": 0.995395384738229,
+        "protected_rate": 0.9910714285714286,
+        "protected_rate_wilson95": [
+          0.9878653040984352,
+          0.9934360871014681
+        ],
+        "private_total": 4480,
+        "fully_protected": 4440,
+        "leaked": 40,
+        "causes": {
+          "undetected": 24,
+          "keep_misroute": 4,
+          "under_cover": 12
+        }
+      },
+      "SURNAME": {
+        "char_recall": 0.9981341498421203,
+        "protected_rate": 0.9957446808510638,
+        "protected_rate_wilson95": [
+          0.9931954097652471,
+          0.9973414497092568
+        ],
+        "private_total": 3995,
+        "fully_protected": 3978,
+        "leaked": 17,
+        "causes": {
+          "undetected": 5,
+          "keep_misroute": 2,
+          "under_cover": 10
+        }
+      },
+      "STREET_NAME": {
+        "char_recall": 0.9890812034940148,
+        "protected_rate": 0.9788961038961039,
+        "protected_rate_wilson95": [
+          0.9712812745118296,
+          0.9845240168262634
+        ],
+        "private_total": 1848,
+        "fully_protected": 1809,
+        "leaked": 39,
+        "causes": {
+          "undetected": 10,
+          "keep_misroute": 10,
+          "under_cover": 19
+        }
+      },
+      "BUILDING_NUMBER": {
+        "char_recall": 0.9413528199362938,
+        "protected_rate": 0.9337349397590361,
+        "protected_rate_wilson95": [
+          0.9213906934733344,
+          0.9442580052992807
+        ],
+        "private_total": 1826,
+        "fully_protected": 1705,
+        "leaked": 121,
+        "causes": {
+          "undetected": 81,
+          "keep_misroute": 6,
+          "under_cover": 34
+        }
+      },
+      "PHONE": {
+        "char_recall": 0.9995348837209302,
+        "protected_rate": 0.9966068831798351,
+        "protected_rate_wilson95": [
+          0.9930122737752772,
+          0.9983554246492173
+        ],
+        "private_total": 2063,
+        "fully_protected": 2056,
+        "leaked": 7,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 7
+        }
+      },
+      "TAX_ID": {
+        "char_recall": 0.9987474708546102,
+        "protected_rate": 0.9988751406074241,
+        "protected_rate_wilson95": [
+          0.9936558819039077,
+          0.9998014122006679
+        ],
+        "private_total": 889,
+        "fully_protected": 888,
+        "leaked": 1,
+        "causes": {
+          "undetected": 1,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "CREDIT_CARD": {
+        "char_recall": 0.9985481852315394,
+        "protected_rate": 0.9983922829581994,
+        "protected_rate_wilson95": [
+          0.9941568646099886,
+          0.999559004455444
+        ],
+        "private_total": 1244,
+        "fully_protected": 1242,
+        "leaked": 2,
+        "causes": {
+          "undetected": 2,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "EMAIL": {
+        "char_recall": 0.9988944878650761,
+        "protected_rate": 0.9960474308300395,
+        "protected_rate_wilson95": [
+          0.9929357680860705,
+          0.9977915125745885
+        ],
+        "private_total": 2783,
+        "fully_protected": 2772,
+        "leaked": 11,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 11
+        }
+      },
+      "GOVERNMENT_ID": {
+        "char_recall": 0.9988844621513944,
+        "protected_rate": 0.9991460290350128,
+        "protected_rate_wilson95": [
+          0.9951785141061387,
+          0.9998492411248645
+        ],
+        "private_total": 1171,
+        "fully_protected": 1170,
+        "leaked": 1,
+        "causes": {
+          "undetected": 1,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "PASSPORT": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9948699431228182,
+          1
+        ],
+        "private_total": 745,
+        "fully_protected": 745,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "DRIVERS_LICENSE": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9965572174401814,
+          0.9999999999999999
+        ],
+        "private_total": 1112,
+        "fully_protected": 1112,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "SSN": {
+        "char_recall": 0.964193046185781,
+        "protected_rate": 0.924953095684803,
+        "protected_rate_wilson95": [
+          0.9075657635435347,
+          0.9392885745192215
+        ],
+        "private_total": 1066,
+        "fully_protected": 986,
+        "leaked": 80,
+        "causes": {
+          "undetected": 14,
+          "keep_misroute": 3,
+          "under_cover": 63
+        }
+      }
+    },
+    "it": {
+      "GIVEN_NAME": {
+        "char_recall": 0.9929940003870718,
+        "protected_rate": 0.9885732941560561,
+        "protected_rate_wilson95": [
+          0.9841502121090342,
+          0.9917723787414354
+        ],
+        "private_total": 3063,
+        "fully_protected": 3028,
+        "leaked": 35,
+        "causes": {
+          "undetected": 23,
+          "keep_misroute": 3,
+          "under_cover": 9
+        }
+      },
+      "SURNAME": {
+        "char_recall": 0.9974374706752807,
+        "protected_rate": 0.9939872228485531,
+        "protected_rate_wilson95": [
+          0.9902546764363724,
+          0.9962955185170537
+        ],
+        "private_total": 2661,
+        "fully_protected": 2645,
+        "leaked": 16,
+        "causes": {
+          "undetected": 5,
+          "keep_misroute": 2,
+          "under_cover": 9
+        }
+      },
+      "BUILDING_NUMBER": {
+        "char_recall": 0.9820179820179821,
+        "protected_rate": 0.9803418803418803,
+        "protected_rate_wilson95": [
+          0.9706741328131165,
+          0.9868656238286655
+        ],
+        "private_total": 1170,
+        "fully_protected": 1147,
+        "leaked": 23,
+        "causes": {
+          "undetected": 19,
+          "keep_misroute": 0,
+          "under_cover": 4
+        }
+      },
+      "STREET_NAME": {
+        "char_recall": 0.9923175416133163,
+        "protected_rate": 0.9829931972789115,
+        "protected_rate_wilson95": [
+          0.9738769424688818,
+          0.9889641711178911
+        ],
+        "private_total": 1176,
+        "fully_protected": 1156,
+        "leaked": 20,
+        "causes": {
+          "undetected": 4,
+          "keep_misroute": 3,
+          "under_cover": 13
+        }
+      },
+      "EMAIL": {
+        "char_recall": 0.99937326178072,
+        "protected_rate": 0.9983633387888707,
+        "protected_rate_wilson95": [
+          0.9951988624954287,
+          0.9994432449132886
+        ],
+        "private_total": 1833,
+        "fully_protected": 1830,
+        "leaked": 3,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 3
+        }
+      },
+      "DRIVERS_LICENSE": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9946184139450545,
+          1
+        ],
+        "private_total": 710,
+        "fully_protected": 710,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "TAX_ID": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9946854193228503,
+          1
+        ],
+        "private_total": 719,
+        "fully_protected": 719,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "CREDIT_CARD": {
+        "char_recall": 0.967129837143284,
+        "protected_rate": 0.9676646706586827,
+        "protected_rate_wilson95": [
+          0.9533622092445134,
+          0.9776836520956967
+        ],
+        "private_total": 835,
+        "fully_protected": 808,
+        "leaked": 27,
+        "causes": {
+          "undetected": 26,
+          "keep_misroute": 0,
+          "under_cover": 1
+        }
+      },
+      "SSN": {
+        "char_recall": 0.8367674275138803,
+        "protected_rate": 0.7547495682210709,
+        "protected_rate_wilson95": [
+          0.7181010605758888,
+          0.788039887496452
+        ],
+        "private_total": 579,
+        "fully_protected": 437,
+        "leaked": 142,
+        "causes": {
+          "undetected": 55,
+          "keep_misroute": 0,
+          "under_cover": 87
+        }
+      },
+      "GOVERNMENT_ID": {
+        "char_recall": 0.9979726305119108,
+        "protected_rate": 0.9977064220183486,
+        "protected_rate_wilson95": [
+          0.9916759770255835,
+          0.9993708058630116
+        ],
+        "private_total": 872,
+        "fully_protected": 870,
+        "leaked": 2,
+        "causes": {
+          "undetected": 2,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "PHONE": {
+        "char_recall": 0.999362976175309,
+        "protected_rate": 0.9955882352941177,
+        "protected_rate_wilson95": [
+          0.9904080197734219,
+          0.9979765550921637
+        ],
+        "private_total": 1360,
+        "fully_protected": 1354,
+        "leaked": 6,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 6
+        }
+      },
+      "PASSPORT": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9927631896219135,
+          0.9999999999999999
+        ],
+        "private_total": 527,
+        "fully_protected": 527,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      }
+    },
+    "nl": {
+      "CREDIT_CARD": {
+        "char_recall": 0.8676937738246506,
+        "protected_rate": 0.8644501278772379,
+        "protected_rate_wilson95": [
+          0.8269537422492421,
+          0.8948546994144531
+        ],
+        "private_total": 391,
+        "fully_protected": 338,
+        "leaked": 53,
+        "causes": {
+          "undetected": 49,
+          "keep_misroute": 0,
+          "under_cover": 4
+        }
+      },
+      "EMAIL": {
+        "char_recall": 0.9986909090909091,
+        "protected_rate": 0.996969696969697,
+        "protected_rate_wilson95": [
+          0.9911284973346286,
+          0.9989689185916115
+        ],
+        "private_total": 990,
+        "fully_protected": 987,
+        "leaked": 3,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 3
+        }
+      },
+      "SURNAME": {
+        "char_recall": 0.9955901038941625,
+        "protected_rate": 0.9914263445050663,
+        "protected_rate_wilson95": [
+          0.98471260995311,
+          0.9952059752091975
+        ],
+        "private_total": 1283,
+        "fully_protected": 1272,
+        "leaked": 11,
+        "causes": {
+          "undetected": 3,
+          "keep_misroute": 0,
+          "under_cover": 8
+        }
+      },
+      "DRIVERS_LICENSE": {
+        "char_recall": 0.9956372701776254,
+        "protected_rate": 0.9943181818181818,
+        "protected_rate_wilson95": [
+          0.9795227408019772,
+          0.998440487780628
+        ],
+        "private_total": 352,
+        "fully_protected": 350,
+        "leaked": 2,
+        "causes": {
+          "undetected": 1,
+          "keep_misroute": 1,
+          "under_cover": 0
+        }
+      },
+      "PASSPORT": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9868816452307323,
+          1
+        ],
+        "private_total": 289,
+        "fully_protected": 289,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "GIVEN_NAME": {
+        "char_recall": 0.9931672025723473,
+        "protected_rate": 0.9879839786381842,
+        "protected_rate_wilson95": [
+          0.9810855444505129,
+          0.9923859588025599
+        ],
+        "private_total": 1498,
+        "fully_protected": 1480,
+        "leaked": 18,
+        "causes": {
+          "undetected": 13,
+          "keep_misroute": 0,
+          "under_cover": 5
+        }
+      },
+      "GOVERNMENT_ID": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.990220994925181,
+          1
+        ],
+        "private_total": 389,
+        "fully_protected": 389,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "PHONE": {
+        "char_recall": 0.9991780178487553,
+        "protected_rate": 0.9959404600811907,
+        "protected_rate_wilson95": [
+          0.9881329400047651,
+          0.9986184751017664
+        ],
+        "private_total": 739,
+        "fully_protected": 736,
+        "leaked": 3,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 3
+        }
+      },
+      "TAX_ID": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9875612611772506,
+          1
+        ],
+        "private_total": 305,
+        "fully_protected": 305,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "STREET_NAME": {
+        "char_recall": 0.9867086873115922,
+        "protected_rate": 0.9693053311793215,
+        "protected_rate_wilson95": [
+          0.9525583545698909,
+          0.9802630883138214
+        ],
+        "private_total": 619,
+        "fully_protected": 600,
+        "leaked": 19,
+        "causes": {
+          "undetected": 5,
+          "keep_misroute": 1,
+          "under_cover": 13
+        }
+      },
+      "BUILDING_NUMBER": {
+        "char_recall": 0.9893541518807665,
+        "protected_rate": 0.9832775919732442,
+        "protected_rate_wilson95": [
+          0.9694936641414668,
+          0.9908919256881495
+        ],
+        "private_total": 598,
+        "fully_protected": 588,
+        "leaked": 10,
+        "causes": {
+          "undetected": 8,
+          "keep_misroute": 1,
+          "under_cover": 1
+        }
+      },
+      "SSN": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9868366949742601,
+          1
+        ],
+        "private_total": 288,
+        "fully_protected": 288,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      }
+    },
+    "pt": {
+      "GIVEN_NAME": {
+        "char_recall": 0.992212518195051,
+        "protected_rate": 0.9895448954489545,
+        "protected_rate_wilson95": [
+          0.9833198385340899,
+          0.9934621996713405
+        ],
+        "private_total": 1626,
+        "fully_protected": 1609,
+        "leaked": 17,
+        "causes": {
+          "undetected": 15,
+          "keep_misroute": 0,
+          "under_cover": 2
+        }
+      },
+      "SURNAME": {
+        "char_recall": 0.9975426621160409,
+        "protected_rate": 0.9956772334293948,
+        "protected_rate_wilson95": [
+          0.9906008410814212,
+          0.9980174039832471
+        ],
+        "private_total": 1388,
+        "fully_protected": 1382,
+        "leaked": 6,
+        "causes": {
+          "undetected": 2,
+          "keep_misroute": 0,
+          "under_cover": 4
+        }
+      },
+      "EMAIL": {
+        "char_recall": 0.9992011039291161,
+        "protected_rate": 0.9969727547931383,
+        "protected_rate_wilson95": [
+          0.9911374102912813,
+          0.9989699595653874
+        ],
+        "private_total": 991,
+        "fully_protected": 988,
+        "leaked": 3,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 3
+        }
+      },
+      "GOVERNMENT_ID": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.991145155282481,
+          1
+        ],
+        "private_total": 430,
+        "fully_protected": 430,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "PHONE": {
+        "char_recall": 0.9997635654332664,
+        "protected_rate": 0.9986206896551724,
+        "protected_rate_wilson95": [
+          0.992228607152627,
+          0.9997564826117333
+        ],
+        "private_total": 725,
+        "fully_protected": 724,
+        "leaked": 1,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 1
+        }
+      },
+      "CREDIT_CARD": {
+        "char_recall": 0.9830254618072891,
+        "protected_rate": 0.9838274932614556,
+        "protected_rate_wilson95": [
+          0.9651703203889935,
+          0.9925675614256185
+        ],
+        "private_total": 371,
+        "fully_protected": 365,
+        "leaked": 6,
+        "causes": {
+          "undetected": 6,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "DRIVERS_LICENSE": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.98980579638766,
+          1
+        ],
+        "private_total": 373,
+        "fully_protected": 373,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "SSN": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.987439249598485,
+          1
+        ],
+        "private_total": 302,
+        "fully_protected": 302,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "STREET_NAME": {
+        "char_recall": 0.9993655972448795,
+        "protected_rate": 0.9967373572593801,
+        "protected_rate_wilson95": [
+          0.988182670149156,
+          0.9991048279702964
+        ],
+        "private_total": 613,
+        "fully_protected": 611,
+        "leaked": 2,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 2
+        }
+      },
+      "BUILDING_NUMBER": {
+        "char_recall": 0.9914236706689536,
+        "protected_rate": 0.9884297520661157,
+        "protected_rate_wilson95": [
+          0.9763114484896037,
+          0.9943843778139866
+        ],
+        "private_total": 605,
+        "fully_protected": 598,
+        "leaked": 7,
+        "causes": {
+          "undetected": 5,
+          "keep_misroute": 0,
+          "under_cover": 2
+        }
+      },
+      "PASSPORT": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.9833582855083312,
+          1
+        ],
+        "private_total": 227,
+        "fully_protected": 227,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      },
+      "TAX_ID": {
+        "char_recall": 1,
+        "protected_rate": 1,
+        "protected_rate_wilson95": [
+          0.991145155282481,
+          1
+        ],
+        "private_total": 430,
+        "fully_protected": 430,
+        "leaked": 0,
+        "causes": {
+          "undetected": 0,
+          "keep_misroute": 0,
+          "under_cover": 0
+        }
+      }
+    }
+  },
+  "cause_totals": {
+    "undetected": 770,
+    "keep_misroute": 69,
+    "under_cover": 599
+  }
+}

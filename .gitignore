@@ -1,5 +1,15 @@
 node_modules/
+dist/
 eval/bench/data/
 eval/bench/runs/
+eval/multilingual/data/
+train/data/
+train/runs/
+train/.venv/
 .commit-msg
 *.log
+train/__pycache__/
+
+# Python bytecode (all dirs)
+__pycache__/
+*.pyc

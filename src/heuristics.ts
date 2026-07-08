@@ -10,6 +10,9 @@
 
 import type { PiiLabel, Span } from "./types";
 import { isLuhnValid, isValidSsn } from "./validators";
+import { detectGovernmentIds } from "./gov-id";
+import { detectCuedPhone } from "./phone";
+import { detectPassport } from "./passport";
 
 /** A fixed-length digit candidate paired with its label and validator. */
 interface DigitRule {
@@ -23,7 +26,7 @@ interface DigitRule {
 // Order matters: longer/stricter entities are tried first so a 16-digit card is
 // never carved into a 9-digit "SSN". Overlap is also resolved later in merge.
 const DIGIT_RULES: readonly DigitRule[] = [
-  { label: "CREDIT_CARD", lengths: [16, 15, 14], validate: isLuhnValid },
+  { label: "CREDIT_CARD", lengths: [19, 18, 17, 16, 15, 14, 13], validate: isLuhnValid },
   { label: "SSN", lengths: [9], validate: isValidSsn },
 ];
 
@@ -89,15 +92,19 @@ function detectDigitEntities(raw: string): Span[] {
 // model — exactly as it does for SSN/CC/IP. The model's vestigial EMAIL/URL
 // head no longer needs to fire.
 const TEXT_RULES: readonly { label: PiiLabel; pattern: RegExp; group?: number }[] = [
-  // Email: local part (with +tags and dots) @ dotted domain. Matches
-  // plus-addressing and sub-domains, e.g. `alex+housing@sub.example.gov`.
-  { label: "EMAIL", pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g },
+  // Email: local part (with +tags and dots) @ dotted domain. Matches Unicode
+  // letters and digits so accented local parts (e.g. `mémoichon@`) are captured
+  // whole. Whitespace still bounds the match — space in the local part clips it.
+  // Negative lookbehind anchors the scan to run starts so the engine never
+  // restarts inside a long whitespace-free token (avoids O(n²) backtracking).
+  { label: "EMAIL", pattern: /(?<![\p{L}\p{N}._%+-])[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[\p{L}]{2,}/gu },
   // URL with explicit scheme: everything up to whitespace / closing bracket /
   // quote. Trailing sentence punctuation is left in the span (harmless — the
   // sensitive host+path is what matters and the whole run is redacted).
   { label: "URL", pattern: /\bhttps?:\/\/[^\s<>"'\])}]+/g },
-  // Schemeless web URL: `www.` host followed by the rest of the URL.
-  { label: "URL", pattern: /\bwww\.[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?:\/[^\s<>"'\])}]*)?/g },
+  // Schemeless web URL: `www.` host followed by the rest of the URL. Unicode
+  // letters cover accented hostnames (e.g. `www.café.fr`).
+  { label: "URL", pattern: /\bwww\.[\p{L}\p{N}.-]+\.[\p{L}]{2,}(?:\/[^\s<>"'\])}]*)?/gu },
   { label: "IP_ADDRESS", pattern: /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g },
   // IPv6: full and `::`-compressed forms. Every alternative requires either 8
   // colon-separated groups or a `::`, so it never fires on times ("12:34") or
@@ -109,6 +116,33 @@ const TEXT_RULES: readonly { label: PiiLabel; pattern: RegExp; group?: number }[
   },
   // MAC address: six hex pairs joined by ":" or "-".
   { label: "IP_ADDRESS", pattern: /\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b/g },
+  // Driver's-license format XX-NNNNNN (two letters, hyphen, six digits). Runs on
+  // raw text before the model, so its redact-class span overrides the model's
+  // tendency to tag the two-letter prefix as a kept STATE code.
+  { label: "DRIVERS_LICENSE", pattern: /\b[A-Z]{2}-\d{6}\b/g },
+  // NANP phone: optional +1, area + exchange (first digit 2-9, the NANP rule
+  // that keeps this off dates/SSN/CC/IP and bare account numbers), a required
+  // separator between groups, 4-digit subscriber. Conservative: formatted
+  // 10-digit only — no bare digit runs, 7-digit locals, or extensions. Boundary
+  // guards keep it from matching inside a longer digit sequence. Premasked with
+  // the other text-shaped PII, so the model's PHONE head is a backstop.
+  {
+    label: "PHONE",
+    pattern: /(?<!\d)(?:\+?1[-.\s])?\(?[2-9]\d{2}\)?[-.\s][2-9]\d{2}[-.\s]\d{4}(?!\d)/g,
+  },
+  // Secondary address line: an apartment/unit/suite designator followed by a
+  // number (optionally '#'-prefixed, with an optional trailing letter like 4B).
+  // Requires the designator keyword and a digit, so bare '#4B' and keyword-only
+  // "Suite Life" do not match. Not premasked (see premask.ts) so the model keeps
+  // the surrounding address context.
+  {
+    label: "SECONDARY_ADDRESS",
+    pattern: /\b(?:apartment|apt|unit|suite|ste|room|rm|floor|building|bldg)\.?\s*#?\s*[A-Za-z]?\d{1,5}[A-Za-z]?\b/gi,
+  },
+  // E.164 international phone: an explicit leading '+' (the precision anchor)
+  // followed by a bounded run of digits and separators. Not premasked (PHONE is
+  // in NO_PREMASK_LABELS). Overlaps with the NANP rule are resolved in merge.
+  { label: "PHONE", pattern: /(?<!\d)\+\d[\d().\s-]{7,17}\d(?!\d)/g },
 ];
 
 function detectTextEntities(raw: string): Span[] {
@@ -137,5 +171,8 @@ export function detectHeuristics(raw: string): Span[] {
   return [
     ...detectDigitEntities(raw),
     ...detectTextEntities(raw),
+    ...detectGovernmentIds(raw),
+    ...detectCuedPhone(raw),
+    ...detectPassport(raw),
   ];
 }

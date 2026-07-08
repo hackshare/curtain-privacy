@@ -1,0 +1,132 @@
+{
+  "cases": 157,
+  "overall": {
+    "redactTotal": 417,
+    "protected": 416,
+    "protectedRate": 0.9976019184652278,
+    "keepTotal": 205,
+    "violations": 3,
+    "keepViolationRate": 0.014634146341463415
+  },
+  "byTier": {
+    "normal": {
+      "redactTotal": 275,
+      "protected": 275,
+      "protectedRate": 1,
+      "keepTotal": 122,
+      "violations": 1,
+      "keepViolationRate": 0.00819672131147541
+    },
+    "messy": {
+      "redactTotal": 142,
+      "protected": 141,
+      "protectedRate": 0.9929577464788732,
+      "keepTotal": 83,
+      "violations": 2,
+      "keepViolationRate": 0.024096385542168676
+    }
+  },
+  "byLabel": {
+    "CREDIT_CARD": {
+      "total": 21,
+      "protected": 21,
+      "protectedRate": 1
+    },
+    "EMAIL": {
+      "total": 45,
+      "protected": 45,
+      "protectedRate": 1
+    },
+    "BUILDING_NUMBER": {
+      "total": 19,
+      "protected": 19,
+      "protectedRate": 1
+    },
+    "STREET_NAME": {
+      "total": 19,
+      "protected": 19,
+      "protectedRate": 1
+    },
+    "PHONE": {
+      "total": 25,
+      "protected": 25,
+      "protectedRate": 1
+    },
+    "GIVEN_NAME": {
+      "total": 72,
+      "protected": 71,
+      "protectedRate": 0.9861111111111112
+    },
+    "SURNAME": {
+      "total": 72,
+      "protected": 72,
+      "protectedRate": 1
+    },
+    "SSN": {
+      "total": 24,
+      "protected": 24,
+      "protectedRate": 1
+    },
+    "PASSPORT": {
+      "total": 13,
+      "protected": 13,
+      "protectedRate": 1
+    },
+    "DRIVERS_LICENSE": {
+      "total": 16,
+      "protected": 16,
+      "protectedRate": 1
+    },
+    "BANK_ACCOUNT": {
+      "total": 16,
+      "protected": 16,
+      "protectedRate": 1
+    },
+    "ROUTING_NUMBER": {
+      "total": 16,
+      "protected": 16,
+      "protectedRate": 1
+    },
+    "IP_ADDRESS": {
+      "total": 18,
+      "protected": 18,
+      "protectedRate": 1
+    },
+    "URL": {
+      "total": 17,
+      "protected": 17,
+      "protectedRate": 1
+    },
+    "TAX_ID": {
+      "total": 12,
+      "protected": 12,
+      "protectedRate": 1
+    },
+    "GOVERNMENT_ID": {
+      "total": 12,
+      "protected": 12,
+      "protectedRate": 1
+    }
+  },
+  "leaks": [
+    {
+      "caseId": "cc-update-01",
+      "label": "GIVEN_NAME",
+      "value": "Gina"
+    }
+  ],
+  "violations": [
+    {
+      "caseId": "dl-gov-combo-01",
+      "value": "Florida"
+    },
+    {
+      "caseId": "ssn-name-02",
+      "value": "#CAL-2290"
+    },
+    {
+      "caseId": "ip-abuse-01",
+      "value": "#INC-0077"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# Local pre-push gate. Runs the same checks as .github/workflows/ci.yml so a state
+# that CI would reject cannot be pushed. Keep this in lockstep with that workflow:
+# change one, change the other.
+#
+# The failure this guards against: local `bun test` uses Bun's native runner, but
+# CI (and this hook) run `bun run test`, which is `vitest run`. Test files must
+# import from "vitest", not "bun:test", or they pass locally under `bun test` and
+# fail in CI. Running the real CI command here catches that before the push.
+pre-push:
+  piped: true
+  jobs:
+    - name: type-check
+      run: bun run type-check
+    - name: test
+      run: bun run test
+    - name: build
+      run: bun run build
+    - name: smoke
+      run: bun scripts/smoke-dist.ts

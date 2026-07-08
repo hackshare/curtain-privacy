@@ -35,8 +35,18 @@ type WorkerOutboundEvent = {
 
 export type WorkerMessagePort = {
   onmessage: ((event: WorkerInboundEvent) => void) | null;
+  onerror?: ((event: { message?: string }) => void) | null;
   postMessage: (message: unknown) => void;
+  terminate?: () => void;
 };
+
+/** Bound an error to a short string before it crosses the boundary, so a model
+ * diagnostic that quotes the input cannot dump the whole text off-device. Caps
+ * length rather than semantically stripping input, so treat the result as opaque. */
+function safeErrorMessage(error: unknown): string {
+  if (error instanceof Error) return `${error.name}: ${error.message.slice(0, 200)}`;
+  return "[pii-filter] unknown worker error";
+}
 
 // --- Worker side (runs inside the worker thread) ---
 
@@ -46,6 +56,12 @@ export function registerNerWorker(scope: WorkerMessagePort): void {
 
   scope.onmessage = async (event: WorkerInboundEvent) => {
     const message = event.data;
+    // The postMessage boundary erases types, so validate shape before use: a
+    // malformed message must get a clean error back, never crash the handler.
+    if (message === null || typeof message !== "object" || typeof (message as { kind?: unknown }).kind !== "string") {
+      scope.postMessage({ kind: "error", message: "[pii-filter] invalid worker message" });
+      return;
+    }
     if (message.kind === "init") {
       try {
         classifierPromise = loadNerClassifier(message.options);
@@ -55,20 +71,26 @@ export function registerNerWorker(scope: WorkerMessagePort): void {
         // Surface init failures so the main thread can fail closed instead of
         // hanging forever on a `ready` message that never arrives.
         classifierPromise = null;
-        scope.postMessage({ kind: "error", message: String(error) });
+        scope.postMessage({ kind: "error", message: safeErrorMessage(error) });
       }
       return;
     }
     if (message.kind === "detect") {
+      if (typeof message.text !== "string") {
+        scope.postMessage({ kind: "error", id: message.id, message: "[pii-filter] detect.text must be a string" });
+        return;
+      }
       try {
         if (classifierPromise === null) throw new Error("[pii-filter] worker not initialized");
         const classifier = await classifierPromise;
         const spans = await detectNer(message.text, classifier, message.minScore);
         scope.postMessage({ kind: "result", id: message.id, spans });
       } catch (error) {
-        scope.postMessage({ kind: "error", id: message.id, message: String(error) });
+        scope.postMessage({ kind: "error", id: message.id, message: safeErrorMessage(error) });
       }
+      return;
     }
+    scope.postMessage({ kind: "error", message: `[pii-filter] unknown message kind: ${(message as { kind: string }).kind.slice(0, 40)}` });
   };
 }
 
@@ -82,7 +104,7 @@ export function registerNerWorker(scope: WorkerMessagePort): void {
 export function createWorkerClassifier(
   worker: WorkerMessagePort,
   options: NerOptions,
-): { ready: Promise<void>; detect: (text: string, minScore?: number) => Promise<unknown> } {
+): { ready: Promise<void>; detect: (text: string, minScore?: number) => Promise<unknown>; terminate: () => void } {
   let nextId = 0;
   const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: unknown) => void }>();
   let resolveReady: () => void = () => {
@@ -116,6 +138,16 @@ export function createWorkerClassifier(
     else entry.resolve(data.spans);
   };
 
+  // A crash or uncaught rejection *outside* the worker's onmessage try/catch
+  // fires onerror, not a `result`/`error` message. Without this, every in-flight
+  // detect() promise would hang forever. Reject them all so callers fail closed.
+  worker.onerror = (event) => {
+    const error = new Error(`[pii-filter] worker crashed: ${event.message ?? "unknown"}`);
+    rejectReady(error);
+    for (const entry of pending.values()) entry.reject(error);
+    pending.clear();
+  };
+
   worker.postMessage({ kind: "init", options });
 
   function detect(text: string, minScore?: number): Promise<unknown> {
@@ -126,5 +158,12 @@ export function createWorkerClassifier(
     });
   }
 
-  return { ready, detect };
+  function terminate(): void {
+    const error = new Error("[pii-filter] worker terminated");
+    for (const entry of pending.values()) entry.reject(error);
+    pending.clear();
+    worker.terminate?.();
+  }
+
+  return { ready, detect, terminate };
 }

@@ -34,6 +34,16 @@ export interface PremaskResult {
   readonly rawEnd: number[];
 }
 
+/**
+ * Heuristic labels detected for redaction but NOT premasked to a sentinel before
+ * the model. These recognizers are additive backstops (context-cued or
+ * keyword-cued) that the model was never trained to see behind a sentinel, so
+ * masking them would blind the model to surrounding context or create a
+ * train/serve mismatch. PHONE also catches only part of a longer number. Such
+ * spans are still redacted; the model just still sees their raw text.
+ */
+export const NO_PREMASK_LABELS = new Set<PiiLabel>(["PHONE", "GOVERNMENT_ID", "SECONDARY_ADDRESS", "PASSPORT"]);
+
 /** The sentinel substituted for a premasked label. Stable across train/serve. */
 export function sentinelFor(label: PiiLabel): string {
   return `[${label}]`;

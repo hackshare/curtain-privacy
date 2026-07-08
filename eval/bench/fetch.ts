@@ -41,7 +41,7 @@ export function arg(name: string, fallback: string, argv = Bun.argv): string {
   return next && !next.startsWith("--") ? next : fallback;
 }
 
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) | 0;
@@ -66,7 +66,7 @@ async function safeWrite(path: string, contents: string): Promise<void> {
   }
 }
 
-async function getJson(url: string, token: string | undefined): Promise<any> {
+export async function getJson(url: string, token: string | undefined): Promise<any> {
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
   for (let attempt = 0; attempt < 8; attempt++) {
     try {
@@ -133,9 +133,10 @@ async function main(): Promise<void> {
   const concurrency = Number(arg("concurrency", "8"));
   const dataPath = arg("out", "eval/bench/data/heldout.jsonl");
   const manifestPath = arg("manifest", "eval/bench/heldout.manifest.json");
+  const split = arg("split", SPLIT); // "validation" (eval) or "train" (retrain data)
 
   const info = await getJson(`https://datasets-server.huggingface.co/size?dataset=${DATASET}`, token);
-  const splitInfo = info.size.splits.find((s: any) => s.split === SPLIT);
+  const splitInfo = info.size.splits.find((s: any) => s.split === split);
   const total: number = splitInfo.num_rows;
 
   // Deterministic, shuffled offsets so the sample spans the split rather than
@@ -151,7 +152,7 @@ async function main(): Promise<void> {
   await safeWrite(dataPath, ""); // truncate
 
   const rowsUrl = (offset: number): string =>
-    `https://datasets-server.huggingface.co/rows?dataset=${DATASET}&config=default&split=${SPLIT}&offset=${offset}&length=${PAGE}`;
+    `https://datasets-server.huggingface.co/rows?dataset=${DATASET}&config=default&split=${split}&offset=${offset}&length=${PAGE}`;
 
   let reported = 0;
   const fetchPage = (offset: number): Promise<RawItem[]> =>
@@ -174,7 +175,7 @@ async function main(): Promise<void> {
 
   const manifest = {
     dataset: DATASET,
-    split: SPLIT,
+    split: split,
     revision: info.size?.dataset ?? null,
     seed,
     languages: [...LATIN],

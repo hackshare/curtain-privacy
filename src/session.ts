@@ -30,8 +30,37 @@ export interface ScrubResult {
 export type PlaceholderAliases = Partial<Record<PiiLabel, string>>;
 
 /** Token shape minted by the table; also the regex used to find them on the
- * way back. Kept in one place so scrub and rehydrate can never disagree. */
-export const PLACEHOLDER_PATTERN = /\[[A-Z][A-Z_]*_\d+\]/g;
+ * way back. Kept in one place so scrub and rehydrate can never disagree.
+ * The trailing `.<salt>` is a per-session secret (see {@link SessionEntityTable}):
+ * without it the token namespace is guessable, so a placeholder an attacker types
+ * or plants in a retrieved document could be echoed by the model and rehydrated
+ * into someone's real PII. The salt makes a valid token unguessable. */
+export const PLACEHOLDER_PATTERN = /\[[A-Z][A-Z_]*_\d+\.[0-9a-f]+\]/g;
+
+/** Placeholder shapes to defuse in *inbound* user text — both the salted form
+ * this table mints and the bare `[LABEL_N]` form, so a pasted token can never
+ * round-trip through the model back into a real value. */
+const INBOUND_PLACEHOLDER_PATTERN = /\[[A-Z][A-Z_]*_\d+(?:\.[0-9a-f]+)?\]/g;
+
+/**
+ * Neutralize any placeholder-shaped run in untrusted text before it reaches the
+ * model, so it cannot collide with the live session table on the way back. The
+ * ASCII brackets are swapped for their full-width lookalikes (`［`/`］`), which
+ * reads the same to a human but no longer matches {@link PLACEHOLDER_PATTERN}.
+ * Length-preserving: every replaced character maps 1:1, so detection offsets are
+ * unchanged.
+ */
+export function neutralizePlaceholders(text: string): string {
+  return text.replace(INBOUND_PLACEHOLDER_PATTERN, (m) => `［${m.slice(1, -1)}］`);
+}
+
+/** A per-session secret woven into every token. 48 bits of entropy: far beyond
+ * guessing in an online attack, so a token minted this session cannot be forged. */
+function mintSalt(): string {
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 /**
  * A per-conversation store mapping raw PII values to stable placeholders.
@@ -42,11 +71,17 @@ export class SessionEntityTable {
   private readonly forward = new Map<string, string>();
   private readonly reverse = new Map<string, string>();
   private readonly counters = new Map<string, number>();
+  /** Per-session secret woven into every token so the namespace is unguessable.
+   * Re-minted on {@link reset} so tokens from a prior conversation go fully inert. */
+  private salt: string;
 
   constructor(
     private readonly aliases: PlaceholderAliases = {},
     private readonly keepLabels: ReadonlySet<PiiLabel> = KEEP_LABELS,
-  ) {}
+    salt: string = mintSalt(),
+  ) {
+    this.salt = salt;
+  }
 
   /** The visible name used in tokens for a label (alias or the label itself). */
   private displayName(label: PiiLabel): string {
@@ -61,7 +96,7 @@ export class SessionEntityTable {
     const name = this.displayName(label);
     const next = (this.counters.get(name) ?? 0) + 1;
     this.counters.set(name, next);
-    const token = `[${name}_${next}]`;
+    const token = `[${name}_${next}.${this.salt}]`;
     this.forward.set(key, token);
     this.reverse.set(token, value);
     return token;
@@ -95,5 +130,18 @@ export class SessionEntityTable {
   /** True if `token` is a placeholder this table can resolve. */
   knows(token: string): boolean {
     return this.reverse.has(token);
+  }
+
+  /**
+   * Forget every binding. Call at a conversation boundary before reusing a guard
+   * for a different conversation or user, so one conversation's values can never
+   * surface in another. The salt is re-minted too, so a stale token from the
+   * prior conversation resolves to nothing rather than to a new value.
+   */
+  reset(): void {
+    this.forward.clear();
+    this.reverse.clear();
+    this.counters.clear();
+    this.salt = mintSalt();
   }
 }

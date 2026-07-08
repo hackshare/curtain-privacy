@@ -15,6 +15,8 @@ export {
   ChatGuard,
   createGuard,
   DEFAULT_ALIASES,
+  DEFAULT_MAX_INPUT_CHARS,
+  DEFAULT_WORKER_TIMEOUT_MS,
   type GuardOptions,
   type NerDetector,
 } from "./src/guard";
@@ -26,6 +28,7 @@ export {
 export {
   SessionEntityTable,
   PLACEHOLDER_PATTERN,
+  neutralizePlaceholders,
   type ScrubResult,
   type PlaceholderAliases,
 } from "./src/session";
@@ -36,7 +39,7 @@ export { KEEP_LABELS, resolveKeepLabels, shouldRedact, type PiiLabel, type Span 
 export {
   detectNer,
   loadNerClassifier,
-  RAMPART_MODEL_ID,
+  CURTAIN_MODEL_NAME,
   NER_TOKEN_BUDGET,
   NER_TOKEN_OVERLAP,
   type NerOptions,

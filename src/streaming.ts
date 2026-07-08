@@ -14,9 +14,16 @@ import { PLACEHOLDER_PATTERN } from "./session";
 /** Resolves a placeholder token to its real value, or null to leave it as-is. */
 export type PlaceholderResolver = (token: string) => string | null;
 
-// A run that *might* grow into a placeholder: '[' then [A-Z_] then optional
-// '_' digits, not yet closed by ']'. If a suffix matches this, hold it.
-const PARTIAL_TOKEN = /\[[A-Z_]*(?:_\d*)?$/;
+// A run that *might* grow into a placeholder: '[' then [A-Z_], then optional
+// '_' digits, then the optional '.' salt suffix, not yet closed by ']'. If a
+// suffix matches this, hold it until the token completes or is ruled out.
+const PARTIAL_TOKEN = /\[[A-Z_]*(?:_\d*(?:\.[0-9a-f]*)?)?$/;
+
+// A real token's pre-']' text is short (label + counter + 12-hex salt). A held
+// run longer than this can never complete into a valid token, so it is emitted
+// as plain text rather than buffered — this bounds the held buffer and keeps
+// reveal linear instead of O(n^2) on an unclosed '[' flood.
+const MAX_PARTIAL_TOKEN = 128;
 
 /**
  * Stateful reveal for a token stream. Feed chunks in order; `push` returns the
@@ -33,7 +40,7 @@ export class StreamingReveal {
     const revealed = this.replaceComplete(this.buffer);
     // Find the longest suffix that could still be completing a placeholder.
     const partial = revealed.match(PARTIAL_TOKEN);
-    if (partial === null) {
+    if (partial === null || partial[0].length > MAX_PARTIAL_TOKEN) {
       this.buffer = "";
       return revealed;
     }

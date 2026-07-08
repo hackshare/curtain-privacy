@@ -1,0 +1,16 @@
+[project]
+name = "curtain-train"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "torch>=2.2",
+  "transformers>=4.44",
+  "datasets>=2.20",
+  "accelerate>=0.30",
+  "optimum[onnxruntime]>=1.21",
+  "onnx>=1.16",
+  "numpy>=1.26",
+  "pytest>=8",
+  "onnx-ir>=0.2.1",
+  "faker>=30",
+]

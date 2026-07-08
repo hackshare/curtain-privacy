@@ -72,14 +72,17 @@ const GROUP_TO_LABEL: Readonly<Record<string, PiiLabel>> = {
   ZIP_CODE: "ZIP_CODE",
 };
 
-/** The shipped Rampart token-classifier on Hugging Face (q4 ONNX only). */
-export const RAMPART_MODEL_ID = "nationaldesignstudio/rampart";
+/** The model's name. The `curtain` model is built locally from the training
+ * pipeline (see `train/`); it is not fetched from a host. There is no default:
+ * the caller must supply `model` (a local directory path to a built curtain
+ * model, or a Hugging Face id if you host your own), or use `heuristicsOnly`. */
+export const CURTAIN_MODEL_NAME = "curtain";
 
 export interface NerOptions {
   /**
-   * Hugging Face model id or local directory path. Must be a token-classification
-   * ONNX export compatible with Rampart's label schema. Defaults to
-   * {@link RAMPART_MODEL_ID}.
+   * Local directory path to a built `curtain` model (a token-classification ONNX
+   * export with the 35-label schema), or a Hugging Face id if you host your own.
+   * Required: build the model with the `train/` pipeline and pass its path.
    */
   readonly model?: string;
   /** Backend. `"wasm"`/`"webgpu"` in browsers; `"cpu"` for Node (ORT). */
@@ -136,8 +139,13 @@ const RIGHT_PARTICLE_RE = /^([\s'\u2019.-]{1,3})([\p{Lu}][\p{L}\p{M}\u2019']{0,3
 export async function loadNerClassifier(options: NerOptions = {}): Promise<TokenClassifier> {
   const { pipeline } = await import("@huggingface/transformers");
   const merged = { ...DEFAULT_OPTIONS, ...options };
-  const model = merged.model ?? RAMPART_MODEL_ID;
-  const classifier = await pipeline("token-classification", model, {
+  if (options.model === undefined) {
+    throw new Error(
+      "[curtain] no model configured. Build the curtain model with the train/ pipeline " +
+        "and pass model: <path> to createGuard/loadNerClassifier, or use heuristicsOnly: true.",
+    );
+  }
+  const classifier = await pipeline("token-classification", options.model, {
     dtype: "q4",
     device: merged.device,
   });
@@ -186,7 +194,7 @@ export async function loadNerClassifier(options: NerOptions = {}): Promise<Token
 export async function detectNer(
   raw: string,
   classifier: TokenClassifier,
-  minScore: number = DEFAULT_OPTIONS.minScore,
+  threshold: number | ((label: string) => number) = DEFAULT_OPTIONS.minScore,
 ): Promise<Span[]> {
   const windows =
     classifier.countTokens === undefined
@@ -194,14 +202,14 @@ export async function detectNer(
       : planTokenWindows(raw, classifier.countTokens, NER_TOKEN_BUDGET, NER_TOKEN_OVERLAP);
 
   if (windows.length <= 1) {
-    return detectNerWindow(raw, classifier, minScore);
+    return detectNerWindow(raw, classifier, threshold);
   }
 
   const spans: Span[] = [];
   for (const window of windows) {
     // Windows run sequentially: they share one model/session, which is not safe
     // to drive with concurrent inference calls.
-    const windowSpans = await detectNerWindow(raw.slice(window.start, window.end), classifier, minScore);
+    const windowSpans = await detectNerWindow(raw.slice(window.start, window.end), classifier, threshold);
     for (const span of windowSpans) {
       spans.push({ ...span, start: span.start + window.start, end: span.end + window.start });
     }
@@ -348,7 +356,7 @@ function fitCharsToBudget(
 async function detectNerWindow(
   raw: string,
   classifier: TokenClassifier,
-  minScore: number = DEFAULT_OPTIONS.minScore,
+  threshold: number | ((label: string) => number) = DEFAULT_OPTIONS.minScore,
 ): Promise<Span[]> {
   const inferText = raw.replaceAll("-", " ");
   const entities = await classifier(inferText, { aggregation_strategy: "simple" });
@@ -371,7 +379,8 @@ async function detectNerWindow(
       text: raw.slice(entity.start, entity.end),
     });
   }
-  return repairSpans(raw, candidates, minScore);
+  const resolve = typeof threshold === "function" ? threshold : () => threshold;
+  return repairSpans(raw, candidates, resolve);
 }
 
 interface AggregatedEntity {
@@ -388,7 +397,7 @@ function stripBio(label: string): { prefix: "B" | "I" | null; base: string } {
 }
 
 /** A folded copy of the model input plus a map from each folded char to raw. */
-interface FoldedProjection {
+export interface FoldedProjection {
   /** Lowercased, NFKD, combining-mark-stripped copy of the input. */
   readonly text: string;
   /** `rawStart[i]` is the raw offset of the source code point of `text[i]`. */
@@ -405,7 +414,7 @@ interface FoldedProjection {
  * folded text and then projected back to exact raw offsets. Iterates by code
  * point so surrogate pairs map back to whole-character raw spans.
  */
-function foldForModel(raw: string): FoldedProjection {
+export function foldForModel(raw: string): FoldedProjection {
   let text = "";
   const rawStart: number[] = [];
   const rawEnd: number[] = [];
@@ -531,9 +540,9 @@ function mergeBioTokens(
   return out;
 }
 
-function repairSpans(raw: string, spans: readonly Span[], anchorScore: number): Span[] {
-  let kept = spans.filter((span) => span.score >= anchorScore).map(copySpan);
-  const candidates = spans.filter((span) => span.score >= EXTEND_SCORE && span.score < anchorScore).map(copySpan);
+export function repairSpans(raw: string, spans: readonly Span[], threshold: (label: string) => number): Span[] {
+  let kept = spans.filter((span) => span.score >= threshold(span.label)).map(copySpan);
+  const candidates = spans.filter((span) => span.score >= EXTEND_SCORE && span.score < threshold(span.label)).map(copySpan);
 
   // Hard cap on the convergence loop. Real text converges in O(maxLabelLen)
   // iterations; rows with many same-label single-token fragments can otherwise

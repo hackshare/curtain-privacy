@@ -1,316 +1,191 @@
-# Rampart — A Local-First System for PII Redaction
+# curtain-privacy: On-Device PII Redaction with Strict Measurement and a Hardened Placeholder Layer
 
 ## Abstract
 
-We describe **Rampart**, a local-first system for removing personally identifiable information from user-typed text before it leaves the browser.
-The system combines a 14.7 MB ONNX token-classification model with a deterministic recognizer layer; together the two layers form the first gate of a defense-in-depth pipeline.
+curtain-privacy is a client-side system for removing personally identifiable information from user-typed text before it leaves the device. It forks **Rampart**, an in-browser PII redactor, inheriting Rampart's architecture, training recipe, and base deterministic layer, and contributes its own trained model plus the layers around it: a model trained from a public base checkpoint on OpenPII with targeted augmentation, a stricter measurement methodology, a deterministic recognizer layer that closes specific classes of leak, an evaluation on hand-authored real-world text, and a security model for the reversible-placeholder layer that makes redaction usable in a chat without opening an exfiltration channel.
 
-This release is scoped to the **seven Latin-script languages** the model was trained on (English, Spanish, French, German, Italian, Portuguese, Dutch); names in non-Latin scripts are out of scope (see §8).
-Across all seven languages, on a 30,000-row held-out test set drawn from the OpenPII 1.5M corpus, the full system achieves **98.42% private-term recall** (Wilson 95% CI [98.35, 98.49]) at 6.6 ms median latency in Node ONNX, with 91.7% public-term retention under term-presence scoring (and >99% under policy-aware scoring after schema reconciliation with the gold labels).
-On the English+Spanish slice the system reaches **98.85%** recall.
-In the browser, over a held-out OpenPII slice, the shipped pipeline runs at **3.9 ms p50** on WebGPU (Apple Metal) and 12.6 ms on WASM, measured by the `eval/bench/webgpu.ts` harness (latency is hardware-dependent; reproduce with `bun run bench:webgpu`).
+The system is scoped to US inputs and the 24 Latin-script languages the model is trained on (English, Spanish, French, German, Italian, Portuguese, Dutch, Polish, Czech, Slovak, Lithuanian, Latvian, Estonian, Swedish, Danish, Finnish, Hungarian, Romanian, Slovenian, Croatian, Vietnamese, Malay, Indonesian, Tagalog). On a frozen 30,000-row held-out slice of the OpenPII 1.5M corpus, disjoint from training, measured under a character-level, occurrence-anchored metric, curtain-privacy fully protects **98.24%** of private occurrences (Wilson 95% CI [98.16%, 98.31%]) at **96.43%** public-text retention, with **98.50%** significant-character recall. On a separate 157-case hand-authored en-US corpus scored under the same metric, it fully protects **99.76%** of redactable terms (416 of 417) while over-redacting **1.95%** of deliberately planted keep-set landmines, and on a 300-case held-out diverse-name corpus it protects **99.41%** at **1.00%** over-redaction. The shipped model is a 14.2 MB 4-bit ONNX artifact.
 
-Rampart is **harm reduction**, not perfect protection.
-Any privacy system that depends on a trusted server-side environment inherits that environment's risk: once unredacted text leaves the device — to a model provider, a logging pipeline, an analytics SDK, or a future infrastructure breach — it is exposed to failures beyond the user's control.
-Redacting in the browser shifts that trust boundary: the impact of any downstream failure is bounded by what the client already removed, because a later component cannot leak what was never sent.
-No model this small catches every instance of PII, so we deliberately chose a recall-biased operating point that still runs entirely in the browser on low-end hardware, offline, with no network round trip — a meaningful layer of defense in depth, not a guarantee.
+curtain-privacy is harm reduction, not perfect protection. Any privacy system that depends on a trusted server-side environment inherits that environment's risk: once unredacted text leaves the device, to a model provider, a logging pipeline, an analytics SDK, or a future breach, it is exposed to failures beyond the user's control. Redacting on the device bounds the impact of any downstream failure by what the client already removed, because a later component cannot leak what was never sent. No model this small catches every instance of PII, so the system runs at a recall-biased operating point and measures conservatively: it reports what a strict character-level metric shows rather than the higher number a looser metric would produce.
 
-This document describes the architecture, the alternatives we evaluated and rejected, our training and evaluation methodology, operating-point and calibration analysis, known failure modes, and the licensing under which the system is released.
+This document describes what curtain-privacy inherits from Rampart and what it adds, the architecture, the measurement methodology and why it differs from the usual one, the evaluation, the security model for the placeholder layer, related work, known limitations, and reproducibility.
 
-## 1. Design goals
+## 1. Relationship to Rampart
 
-The system is built around four constraints:
+curtain-privacy began as a fork of Rampart and reuses Rampart's design: the same encoder architecture (MiniLM-L6-H384), the same documented training recipe (a 35-label BIO head, a structured-PII premask, a model-space fold), the base deterministic recognizers, span repair, and the recall-biased calibration point. What it does not reuse is Rampart's model weights. curtain-privacy trains its own model from the public base checkpoint on OpenPII plus targeted augmentation (§3.5), so the numbers in this paper are its own model measured through its own pipeline.
 
-1. **Local-first privacy as harm reduction.** Personal information is removed before reaching application infrastructure. Data the server never receives cannot be leaked by a model provider, a logging system, an analytics pipeline, a third-party SDK, or a future compromise of the application's own backend. This is the threat model that motivates the entire system: every other constraint follows from refusing to put the user in a position where they have to trust a remote operator with their unredacted text.
-2. **Browser-deployable.** The shipped artifact must fit on a low-end mobile phone. Targeting under 15 MB on the wire ruled out most modern PII NER models, including GLiNER (≈50 MB) and DistilBERT-based detectors (≈64 MB).
-3. **Recall-biased.** Misses leak data, so the default policy redacts whenever a detector fires above its calibrated threshold. Over-redaction has a real cost, too: a chat assistant that cannot see context cannot help, but at a smaller cost than a leak.
-4. **Domain-aware retention.** Useful assistants often need rough context, like coarse geography, to be helpful. The keep-set (`{CITY, STATE, ZIP_CODE}`) is policy-driven so applications can tune the boundary between privacy and utility without retraining; the precise street line is redacted.
+The split of responsibility:
 
-## 2. Architecture
+| Component | Source |
+| --- | --- |
+| Encoder architecture (MiniLM-L6-H384) and the training recipe (35-label BIO, structured-PII premask, model-space fold) | Rampart |
+| Base deterministic recognizers (SSN and credit-card checksums, email/URL/IP patterns) | Rampart |
+| Span repair (adjacency merge, bridge-and-merge, capitalized-particle rescue) | Rampart |
+| The recall-biased 0.4 confidence-floor calibration point | Rampart |
+| The trained model: from-base fine-tune on OpenPII plus diverse-name / messy / GOVERNMENT_ID / keep-negative augmentation, vocab-trimmed and quantized | curtain-privacy |
+| Character-level, occurrence-anchored leak metric and three-cause taxonomy | curtain-privacy |
+| Fiscal-ID span extension, monotonic byte-union merge, Unicode-complete email/URL, NANP phone recognizer, driver's-license pattern, context-cued government-ID recognizer | curtain-privacy |
+| Per-label thresholds and the aggressive/balanced/conservative operating-point knob | curtain-privacy |
+| Real-world 157-case and held-out fairness evaluations | curtain-privacy |
+| Security model for the placeholder layer (salted tokens, inbound neutralization, fail-closed, pinned model) | curtain-privacy |
+| Library packaging and the CI regression gate | curtain-privacy |
 
-Rampart ships as two cooperating layers that run in parallel and merge their outputs.
-Each layer is designed to cover a class of failures the other layer cannot reliably handle on its own.
-Both run entirely in-browser.
+Rampart's own methodology and results are documented in its model card and whitepaper. Where this paper refers to a Rampart number it labels it as Rampart's measurement rather than restating it as a result of this work.
 
-### 2.1 The deterministic recognizer layer
+## 2. Design goals
 
-Real-world PII often has structure that is faster and more reliable to validate than to learn.
-The deterministic layer is a curated set of regular expressions paired with checksum and structural validators.
-It owns five classes end-to-end:
+The system inherits Rampart's constraints and adds one.
 
-- **Luhn checksum** for payment cards, matched over the digit projection so every separator form collapses to one rule.
-- **SSN structural rules** that reject reserved areas (000, 666, 9XX) and ZIP+4 codes that pattern-match the SSN shape.
-- **Pattern-backed detection** for email addresses, URLs, and IP addresses (IPv4, IPv6, and MAC), where the structure lives in the punctuation.
+1. **Local-first privacy as harm reduction.** Personal information is removed before it reaches application infrastructure. Data a server never receives cannot be leaked by a model provider, a logging system, an analytics pipeline, a third-party SDK, or a future compromise of the application's own backend.
+2. **Browser-deployable.** The shipped model must fit on a low-end phone. A 14.2 MB artifact on the wire rules out most modern PII NER models, including GLiNER (around 50 MB) and DistilBERT-based detectors (around 64 MB).
+3. **Recall-biased.** A miss leaks data, so the default policy redacts whenever a detector fires above its threshold. Over-redaction has a real cost too: an assistant that cannot see context is less helpful. That cost is smaller than a leak, so the system pays it.
+4. **Domain-aware retention.** Useful assistants often need rough context such as coarse geography. The keep-set (`{CITY, STATE, ZIP_CODE}`) is policy-driven, so applications can move the privacy/utility boundary without retraining. The precise street line is redacted.
+5. **A placeholder layer that cannot be turned against the user.** Redaction replaces each value with a stable placeholder so the assistant can still reason about the conversation, and reveal puts the real value back before display. That reversibility is a security surface: if placeholders are predictable, an attacker can plant one and have the model echo it back into real PII. curtain-privacy treats the placeholder layer as an attack surface and hardens it (§7).
 
-These detectors are synchronous and run on the raw input, so this structured PII can be removed even before the model has loaded.
-Because cards and SSNs use checksums and structural rules rather than only shape matching, false-positive rates are very low: a 16-digit number that fails Luhn is not redacted as a card; a 9-digit number with a reserved-area prefix is not redacted as an SSN.
-Classes with no checksum — phone, routing, tax, government-ID, passport, and license numbers, and street-address components — are deliberately left to the model rather than guessed at with a regex.
+## 3. Architecture
 
-### 2.2 The token-classification model
+curtain-privacy ships as two cooperating layers that run in parallel and merge their spans, then a policy and a session-table stage. The encoder architecture, the training recipe, and the span-repair layer follow Rampart; the trained model, the recognizer additions, the merge, the premask, and the salted session table are this work's.
 
-The deterministic layer cannot recognize contextual PII — names, phone numbers, account/routing/tax numbers, government IDs, passports, licenses, and free-form address components.
-For these, Rampart uses a MiniLM-L6-H384 encoder fine-tuned on a 35-label BIO head (17 entity types).
-The tokenizer is an uncased WordPiece tokenizer trimmed to 19,730 pieces (from BERT-uncased's 30,522).
-Single-character pieces are always retained, which preserves WordPiece's character-level fallback for rare names and out-of-vocabulary content.
+### 3.1 The deterministic recognizer layer
 
-### 2.3 Span repair
+Structured PII is faster and more reliable to validate than to learn. The deterministic layer is a set of regular expressions paired with checksum and structural validators, and it is the system of record for the classes it owns. Rampart's layer owns SSN and credit-card numbers (checksum-validated) and email, URL, and IP addresses (pattern-matched).
 
-HuggingFace's standard `aggregation_strategy="simple"` produces fragmented spans when subword B-`GIVEN_NAME` probabilities outrank I-`GIVEN_NAME` inside a name, e.g. "Zaccarino" tokenized as "Zac"+"##car"+"##ino" can come back as three separate name spans.
-Rampart applies three layers of post-processing:
+curtain-privacy extends this layer to close leaks the character-level metric (§5) surfaced, and adds a driver's-license pattern the base layer left to the model:
 
-1. **Adjacent-span merging** collapses consecutive same-label spans separated only by name-internal punctuation (space, hyphen, apostrophe, period, comma).
-2. **Iterative bridge-and-merge** rescues low-confidence candidates (score between the 0.15 extend floor and the 0.4 keep threshold) when they bridge two high-confidence spans of the same label. This catches names like "Jose [LOW] de [HIGH] Garcia" where a particle scored below the cutoff but is structurally part of the name.
-3. **Capitalized-particle rescue** grows name spans (`GIVEN_NAME` / `SURNAME`) to swallow short capitalized name particles ("De la", "Von", "Mc") sitting inside a name's flow.
+- **Fiscal-ID span extension.** Formatted national fiscal codes often left significant characters exposed at a span boundary even after the model or a validator fired. `extendSpans` grows a detected structured-ID span (SSN, tax ID, credit card, government ID, passport, driver's license, bank account, routing number) across adjacent connector characters and trims trailing punctuation, never shrinking. It only grows spans that already overlap a detected ID and stops at whitespace, so the privacy gain comes at negligible retention cost.
+- **Monotonic byte-union merge.** When a redact-class and a keep-class span overlap, `mergeSpans` takes the byte-union under the redact label, so a keep-class span can never carve a hole in a redacted one. This default-deny merge restores the invariant that the union of redact spans only grows, which removed the fiscal-ID boundary leaks that survived span extension: SSN boundary leaks fell from 317 to 205 occurrences and credit-card boundary leaks from 33 to 10 on the frozen slice.
+- **Unicode-complete email and URL.** The email and URL patterns match `\p{L}` and `\p{N}` under the `u` flag, so accented local parts and hostnames (for example `mémoichon@…`, `www.café.fr`) are captured whole and masked before the model sees them. The earlier ASCII-only class clipped the address at the first non-ASCII byte and left the tail exposed; this cut email boundary leaks from 245 to 52 occurrences.
+- **NANP phone recognizer.** A conservative North American Numbering Plan recognizer matches a formatted 10-digit phone number with an area and exchange first digit in `[2-9]` and a required separator. Because it matches only the NANP core of a longer international or extension number, masking it would blind the model to the remainder, so it is not premasked: it is an additive redaction span merged with the model's view. Its measured effect on the frozen slice is negligible (the model already catches phones), but it gives the system deterministic ownership of a class and a backstop for phones the model misses.
+- **Context-cued government-ID recognizer.** Custom-prefixed agency and employee identifiers (`EMP-334455`, `NIN-998877`, `GV9876543`) carry no checksum and no standard structure, so the model, trained on no fixed prefix vocabulary, misses many of them. They also share their shape with order and reference codes that must not be redacted (`#ORD-8821045`, `ref:WIRE-20260502`), so a shape-only recognizer would trade a leak for over-redaction. The recognizer discriminates on two signals that separate the two in practice: order codes carry a leading `#`, and a genuine identifier sits next to an identity cue ("government ID", "emp id", "staff badge"). A candidate is redacted only when it is not `#`-prefixed and a cue appears in the short window just before it, and the window never reaches past a prior candidate so one code's cue cannot bleed onto the next. Like the phone recognizer, it is additive rather than premasked, because the model was never trained behind a `[GOVERNMENT_ID]` sentinel for these prefixes.
 
-This composition lifts span-F1 to 0.53 strict (IoU=1.0) and 0.66 relaxed (IoU≥0.5) on the 30,000-row test set, well above the fragmented spans the default aggregation produces.
+### 3.2 The token-classification model
 
-### 2.4 Defense in depth
+The contextual layer is a MiniLM-L6-H384-uncased encoder with a token-classification head, trained by this work (§3.5) and exported to a 14.2 MB artifact (4-bit MatMul plus an INT8-quantized embedding table, over a 19,730-piece trimmed vocabulary) that runs on the device through transformers.js, on WebGPU or WASM in the browser and on CPU under Node. Cold load is about 330 ms and median inference about 4.6 ms per turn on CPU. It catches the unstructured, context-dependent classes the deterministic layer cannot: given names, surnames, street names, building numbers, cities, states, and the other free-text entities.
 
-The two layers are complementary, not redundant. Each owns the classes the other handles poorly:
+### 3.3 Premask, merge, and policy
 
-| Layer         | Owns                                                                                                                                                                                                             | Why                                                                                                                                                                               |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Deterministic | `SSN`, `CREDIT_CARD`, `IP_ADDRESS`, `EMAIL`, `URL`                                                                                                                                                               | Checksum/structural validation (cards, SSNs) or punctuation-anchored patterns (email, URL, IP) give near-perfect precision and recall, including under orthographic perturbation. |
-| Model         | `GIVEN_NAME`, `SURNAME`, `PHONE`, `TAX_ID`, `BANK_ACCOUNT`, `ROUTING_NUMBER`, `GOVERNMENT_ID`, `PASSPORT`, `DRIVERS_LICENSE`, `BUILDING_NUMBER`, `STREET_NAME`, `SECONDARY_ADDRESS`, `CITY`, `STATE`, `ZIP_CODE` | Open-ended, context-dependent, and free of any checksum to validate against — exactly what an enumerable rule set cannot keep up with.                                            |
+Before the model runs, the deterministic layer's structured detections are replaced with neutral sentinels (`[SSN]`, `[CREDIT_CARD]`, and so on) so the model classifies text distributed the way its training data was, and never sees raw card or SSN digits. A per-character offset map projects any span the model reports in masked coordinates back to exact raw offsets. The phone recognizer is excluded from premasking for the reason given above.
 
-The model handles open-ended cases in shapes the regex catalog cannot predict for; the deterministic layer covers the structured classes where exact-character recall matters and adversarial inputs where a Luhn-valid card survives any perturbation of the surrounding text.
+The two layers' spans are merged by the monotonic byte-union rule (§3.1), then filtered by a default-deny policy: everything a detector labels as PII is redacted except the keep-set `{CITY, STATE, ZIP_CODE}`. The operating-point knob (§6.3) scales the model's per-label thresholds without retraining.
 
-The system unions the two layers' spans before applying policy, so a token redacted by either layer is redacted in output.
-This is why full-system private-term recall exceeds the model alone on the structured classes the deterministic layer owns, while the model raises the ceiling on classes the deterministic layer cannot enumerate.
+### 3.4 The session table
 
-### 2.5 Policy
+Blanket `[REDACTED]` makes an assistant's replies useless, so each redacted value is replaced with a stable, typed placeholder that survives across turns: the same value always maps to the same token, so the model can reason about "the given name" and curtain-privacy restores the real value in the reply before display. The map lives only on the device; what leaves is placeholdered text. The placeholder scheme is a security surface, described in §7.
 
-Every detected span carries a label.
-The policy layer applies **default-deny**: each label is redacted unless explicitly in the keep-set.
-The default keep-set is `{CITY, STATE, ZIP_CODE}` so an assistant can reason about coarse geography and eligibility while the precise street line (`BUILDING_NUMBER` + `STREET_NAME`) and secondary-address line (`SECONDARY_ADDRESS`) are redacted alongside names, identifiers, and contact information.
-The keep-set is a compile-time set (`KEEP_LABELS` in `src/types.ts`), not a runtime flag.
+### 3.5 Training the model
 
-### 2.6 Session table
+The model is fine-tuned from the public base checkpoint `nreimers/MiniLM-L6-H384-uncased` with a 35-label BIO head, following Rampart's documented recipe: the structured classes (SSN, credit card, IP address) are premasked to sentinels during dataset construction so training and inference see the same distribution; text is folded to model space (lowercase, NFKD, combining-mark strip); dates, ages, and income map to non-PII; and the keep-set is `{CITY, STATE, ZIP_CODE}`.
 
-A client-only session table maps each detected raw value to a stable placeholder:
+The training data is about 150,000 rows drawn from the OpenPII train split, disjoint by construction from the frozen 30,000-row eval slice, plus targeted augmentation that reproduces the distribution the public corpus lacks. The augmentation adds diverse Latin-script names (drawn across many locales), messy real-world formatting (field-style separators, case and spacing noise), GOVERNMENT_ID variety (custom-prefixed identifiers next to identity cues), and keep-negatives: order and reference codes and city/state values left untagged, so the model learns the keep boundary rather than over-generalizing. The keep-negatives were the decisive step. Recall-focused augmentation alone closed the real-world detection gap but shifted the model toward over-redaction, and only after the keep-negatives were added did a model clear both the recall and the retention gates.
 
-```
-Maria Garcia    →  [GIVEN_NAME_1] [SURNAME_1]
-555-11-2222     →  [SSN_1]
-88 Pine Avenue  →  [BUILDING_NUMBER_1] [STREET_NAME_1]
-```
+Every candidate is scored end to end through the shipped TypeScript pipeline on all three evals, never trusted from a training loss curve. The winning checkpoint is trimmed to a 19,730-piece vocabulary and exported to 4-bit MatMul plus INT8 embedding (§3.2). The quantization is near lossless: retention and protected-rate move by at most 0.02 percentage points between the full-precision and quantized artifacts.
 
-The model provider sees only the placeholders.
-The user sees the restored response.
-Placeholders are intentionally formatted to look obviously synthetic so a model provider cannot easily de-anonymize them through downstream inference.
-The table is never transmitted.
+## 4. A strict metric
 
-## 3. Methodology
+Rampart reports **term presence**: a private term counts as protected if the gold string no longer appears in the output. That is the standard PII-benchmark metric, and Rampart's 98.42% term-presence recall on the 30,000-row test is measured under it. Term presence has a blind spot: a span that covers most of a value but leaves a few characters exposed still counts as fully protected, because the exact gold string is gone. A partially redacted credit card can leak its last four digits and still score as a success.
 
-### 3.1 The candidate space
+curtain-privacy scores at the **character level, anchored per occurrence**. Each significant (alphanumeric) character of a gold occurrence is scored as covered by a redaction span or not, and an occurrence counts as fully protected only when every significant character falls under a span. Two numbers follow:
 
-Model selection was not a one-shot grid.
-The shipped model is the product of a sustained, instrumented search: many fine-tuning runs across base architecture, corpus composition, label schema, vocabulary trim, prefilter strategy, and quantization, run over the project's lifetime.
-The eval harness (§3.4) was the instrument that drove it.
-Every run was scored end-to-end against the held-out set, and the corpus and schema were evolved in whatever direction the metrics said was working.
-The relabeling and corpus update decisions in §3.5 are themselves validated outputs of that loop.
+- **char-recall**: the weighted fraction of significant private characters covered by any redaction span.
+- **protected-rate**: the fraction of private occurrences that are fully protected, reported with a Wilson 95% confidence interval.
 
-One representative round of that search — the selection matrix detailed in §4 — varied four axes over their Cartesian product:
+This is strictly harder than term presence, and it is the number curtain-privacy headlines because it does not credit a boundary leak as a save. The metric change is why the recognizer work in §3.1 exists: the character-level view made under-covered spans visible as a distinct, fixable failure.
 
-- **Base architecture (2).** MiniLM-L6-H384-uncased vs ELECTRA-small. ELECTRA is attractive in size (its trimmed Q4 artifact is ~10 MB to MiniLM's ~19 MB at full vocab) but, as §4.1 shows, did not imbibe additional data the way MiniLM did.
-- **Prefilter (2).** Whether the deterministic layer's structured classes (`SSN`, `CREDIT_CARD`, `IP_ADDRESS`) are premasked before the model classifier runs or trained as real model classes (the no-prefilter ablation). Prefilter-on is the shipped configuration; the model never spends capacity on digits a checksum already settles.
-- **Data mix (3).** Cumulative: the synthetic conversation corpus alone, then plus an OCR'd-document corpus, then plus the public AI4Privacy template corpus.
-- **Corpus volume (2).** The first 100k vs the first 250k synthetic conversations.
+Leaks are attributed to one of three causes, which is how the recognizer work was prioritized:
 
-That is 2 × 3 × 2 = 12 data/architecture cells per base, scored under both runtime modes — a 24-model ablation, each cell exported to its Q4 and several vocab-trimmed artifacts.
-§4 reports it and the directional findings that came out of it; this section defines the rules under which every cell was scored.
-It is one round of the larger, ongoing search, not its entirety.
+- **undetected**: no detection overlapped the occurrence at all.
+- **keep_misroute**: the occurrence was detected but routed to the keep-set by policy.
+- **under_cover**: the occurrence was detected and redacted, but the span left significant characters exposed.
 
-### 3.2 Pre-registered eval design
+Because the two metrics are defined differently, the character-level numbers here are not comparable to Rampart's term-presence numbers or to the usual PII-benchmark figures.
 
-The eval design is fixed before a round's numbers are read.
-The governing principle is recall-biased and size-aware:
+## 5. Evaluation
 
-> Among candidates that clear the private-term recall floor on the held-out set, ship the smallest — unless a documented reason (multilingual coverage, adversarial robustness, a fairness regression) justifies overriding.
+### 5.1 Frozen OpenPII slice
 
-### 3.3 Datasets
+The primary benchmark runs the shipped pipeline over a frozen 30,000-row held-out slice of OpenPII (129,258 private occurrences), disjoint from the training data, across the seven Latin-script languages in the held-out slice, and writes the per-run manifest the numbers cite. Under the character-level metric:
 
-| Dataset                             | Rows  | Use                                                                                                               |
-| ----------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------- |
-| OpenPII calibration                 | 10k   | Recall-floor threshold tuning                                                                                     |
-| OpenPII held-out test (7 languages) | 30k   | Headline test (en, es, fr, de, it, pt, nl)                                                                        |
-| Per-language slices                 | —     | English (11,569) and Spanish (3,234) reported separately; remaining five in the per-language table (§ model card) |
-| Fairness                            | 1,875 | Faker × 15 naming traditions × 5 templates                                                                        |
+- **protected-rate 98.24%**, Wilson 95% CI [98.16%, 98.31%]
+- **char-recall 98.50%**
+- **public char-retention 96.43%**
+- median inference 4.6 ms per turn on CPU
 
-All OpenPII splits are drawn deterministically from the held-out 100k partition of the OpenPII 1.5M corpus, disjoint from training.
-The shipped headline is measured across all seven supported languages; the per-language counts are the natural language distribution of that 30k slice (see model card).
+The protected-rate is 0.64 percentage points below the previous seven-language model on this same benchmark. This is the honest, documented cost of spreading a 14.2 MB model across 24 languages: a diagnostic run of the full-precision fp32 export of the same weights reaches only 98.47%, so approximately 0.41 pp of the gap is model capacity (24 languages competing for the same parameters), not quantization. No larger export recovers it.
 
-### 3.4 Metrics
+Per-language char-recall shows where the residual risk sits:
 
-- **Private-term recall**: for every gold private value, did the redacted output contain the value? Wilson 95% CI; bootstrap 1000-resample CI for stratified breakdowns.
-- **Public-term retention**: for every gold public value, did the redacted output preserve the value?
-- **Span-level F1**: strict at IoU=1.0; relaxed at IoU≥0.5; overlap at IoU>0. One-to-one greedy matching, higher-scored predictions match first.
-- **Latency**: Node.js ONNX runtime cold / p50 / p95 / p99 over the full 30,000-row test set.
-- **Calibration**: 15-bin reliability expected calibration error (ECE), per label and overall, computed on per-span max-class scores.
+| language | char-recall | language | char-recall |
+| --- | --- | --- | --- |
+| Italian | 96.85% | German | 98.65% |
+| Dutch | 97.52% | French | 99.36% |
+| English | 98.29% | Portuguese | 99.32% |
+| Spanish | 99.18% | | |
 
-#### Headline results, per language
+Italian remains the weakest language at 96.85%, driven by residual SSN and credit-card format variants that escape the deterministic checksums and are never detected by the model, so the monotonic merge cannot recover them. The other six languages sit between 97.5% and 99.4%. Public retention is lowest in English (95.26%) and highest in Portuguese (97.48%).
 
-Full system (model + deterministic layer + policy) on the 30,000-row held-out test, scored end-to-end by the committed `eval/bench` harness:
+**Person-name recall across all 24 languages.** A separate eval measures person-name recall (significant-character coverage) on a pinned per-language validation sample across all 24 supported languages. Every language reaches at least 95.4%. The weakest is Lithuanian (95.4%); English reaches 100%; Vietnamese reaches 97.3%, up from a 70.0% baseline before the language expansion; Latvian reaches 96.5% and Swedish 96.2%.
 
-| Language        |       Rows | Private recall | Public retention | Leaks / private terms |
-| --------------- | ---------: | -------------: | ---------------: | --------------------: |
-| English (en)    |     11,569 |         98.85% |            90.5% |          618 / 53,877 |
-| Spanish (es)    |      3,234 |         98.84% |            91.6% |          160 / 13,736 |
-| French (fr)     |      4,708 |         98.41% |            92.8% |          317 / 19,906 |
-| German (de)     |      4,260 |         97.94% |            91.7% |          357 / 17,347 |
-| Italian (it)    |      3,218 |         97.83% |            94.1% |          301 / 13,855 |
-| Portuguese (pt) |      1,485 |         97.73% |            92.5% |           147 / 6,467 |
-| Dutch (nl)      |      1,526 |         97.21% |            91.9% |           182 / 6,519 |
-| **All seven**   | **30,000** |     **98.42%** |       **91.69%** |   **2,082 / 131,707** |
+The over-redaction gate on this slice is a 0.2-percentage-point budget: a change to the pipeline that lifts recall must not cost more than that in retention. The leak-closing deterministic-layer work (the fiscal-ID extension and the monotonic merge) was developed against this budget and stayed inside it.
 
-Recall is term-presence (did every gold private value vanish from the output); retention is the policy-aware keep-set (city/state/ZIP). The seven-language aggregate carries a Wilson 95% CI of [98.35, 98.49].
+### 5.2 Real-world corpus
 
-### 3.5 Label schema and training-data design
+OpenPII conversations are clean and well-formed, which flatters any redactor. curtain-privacy adds a 157-case hand-authored en-US corpus with format-valid but fake PII, split into a normal tier and a messy tier (typos, unusual spacing, mixed formatting), and 205 deliberately planted keep-set landmines (geographic terms and numeric-looking order codes that should not be redacted). It is scored under the same character-level metric:
 
-The shipped model reflects two design decisions that postdate the candidate sweep above.
-Both are about _what_ the model is asked to learn, not which checkpoint to ship.
+- **protected-rate 99.76%** (416 of 417 redactable terms)
+- **keep-violation-rate 1.95%** (4 of 205 landmines over-redacted)
+- normal tier: 100% protected, 1.64% keep-violation
+- messy tier: 99.30% protected, 2.41% keep-violation
 
-**Atomic label decomposition.**
-Earlier iterations used coarse, pre-combined labels — a single `STREET_ADDRESS`, a single `PERSON`, plus `ORGANIZATION`, `LOCATION`, `DATE`, `AGE`, `INCOME`, and a catch-all `SECRET`.
-A model trained on those overfits to the easy case where a name or address arrives as one tidy, well-formed blob.
-The shipped schema instead forces everything to atomic pieces: names split into `GIVEN_NAME` / `SURNAME`; the street line into `BUILDING_NUMBER` / `STREET_NAME`; geography into `CITY` / `STATE` / `ZIP_CODE`; and document identifiers into their specific classes (`TAX_ID`, `BANK_ACCOUNT`, `ROUTING_NUMBER`, `GOVERNMENT_ID`, `PASSPORT`, `DRIVERS_LICENSE`) rather than a generic `SECRET`.
-This trains the model to recognize PII _fragments_ in disordered text — a building number on one line, a street name three messages later — instead of expecting a textbook one-line address.
+All but one redactable term is caught (416 of 417), including the custom-prefixed government identifiers that the base public corpus never taught. The GOVERNMENT_ID augmentation (§3.5) and the context-cued recognizer (§3.1) cover them from two directions. The remaining exposure is over-redaction: four keep-set landmines that the model or the recognizers grabbed. One is a state name ("Oregon"); the other three are order codes (#INV-20260512, #CAL-2290, #PLT-4492). These are precision costs on a recall-first system, and they sit under the 3% over-redaction gate in aggregate.
 
-**Dates, ages, and income are non-PII.**
-These were dropped from the redact-set entirely and map to `O` (kept context).
-A public-benefits assistant needs to reason about age and income to be useful, and a bare date is rarely identifying on its own; classifying them as redactable was over-redaction that hurt utility without a matching privacy gain.
-The keep-set proper is `{CITY, STATE, ZIP_CODE}`; dates/ages/income are simply not modeled as PII.
+A third, held-out corpus measures fairness across naming traditions: 300 cases built from diverse Latin-script names drawn from a seed disjoint from the training augmentation, so the model is scored on names it did not train on. On it curtain-privacy protects **99.41%** of names at **1.00%** over-redaction, above the base public-corpus retrain that lacked diverse-name augmentation.
 
-**Premask train/serve symmetry.**
-The structured classes the deterministic layer owns (`SSN`, `CREDIT_CARD`, `IP_ADDRESS`) are replaced with sentinel tokens _before_ the model sees the text, both at inference (`src/premask.ts`) and during dataset construction .
-The model therefore never spends capacity learning to classify raw card/SSN/IP digits — those are a solved problem for a checksum — and the train-time and inference-time input distributions match by construction.
+### 5.3 Operating point
 
-**A deliberately noisy corpus.** OpenPII supplies broad multilingual entropy, but its conversations are clean and well-formed.
-To keep the redactor from overfitting to tidy inputs, the synthetic portion of the corpus is generated to be messy and realistic on purpose: low-effort and typo-prone text, voice-dictated phrasing, values pasted out of forms, multilingual mixing, and contradictory, duplicated, or wrong-field entries, produced across a range of assistant personas so the user-side language varies.
-The aim is a model that catches partial, fragmented PII in real chatbot text rather than only in clean examples.
+The runtime applies a recall-biased confidence floor (0.4), the calibration point inherited from Rampart's recipe. curtain-privacy adds a per-label threshold resolver and an operating-point knob with `aggressive`, `balanced`, and `conservative` settings (scaling factors 0.6, 1.0, 1.6). `balanced` is the shipped default and the operating point for every number above. The knob is a recall/retention dial applied without retraining: raising the threshold trades recall for retention. Its dominant effect is on recall; on this model, moving from balanced toward conservative dropped recall by more than it recovered in retention, which is why the retention gate was cleared by the model itself (through keep-negative augmentation and vocabulary trimming) rather than by the knob.
 
-## 4. Alternatives we tried
+## 6. Security model
 
-### 4.1 Base architecture: MiniLM over ELECTRA
+Reversible placeholders are a convenience and an attack surface. `protect` replaces each detected value with a typed token and records the mapping in a per-conversation table; `reveal` scans the model's reply for those tokens and restores the real values before the user sees them. If the tokens are predictable, that restore step becomes an exfiltration primitive: an attacker who writes `[SSN_1]` into a chat, or plants it in a document the model later quotes, can have `reveal` turn it into the victim's real SSN, which an agentic pipeline might then forward off the device.
 
-The first axis we settled was the encoder.
-ELECTRA-small was the strongest size contender — its trimmed, Q4 artifact is ~10 MB against MiniLM's ~19 MB at full vocab — which for a browser-deployed model is a real pull.
-We ran the entire selection matrix (§4.2) twice, once on each base, on identical data and schema.
+curtain-privacy closes this and hardens the surrounding pipeline.
 
-ELECTRA did not turn extra data into accuracy the way MiniLM did.
-Its eval loss bottomed out early and then crept up as the corpus grew, and the matrix bears this out: every one of ELECTRA's strongest cells used the _smaller_ (100k-conversation) data slice, and adding the larger slice produced its _worst_ cells, not its best.
-MiniLM, on the same axes, reached its top result on the larger slice.
-For a project whose whole thesis is a corpus that keeps growing (§3.5), an encoder that stops improving — or regresses — as data grows has no headroom for the loop we rely on.
-We shipped MiniLM-L6-H384-uncased and kept ELECTRA on the shelf as a size lever for a hypothetical future release willing to accept that ceiling.
+- **Unforgeable tokens.** Each session mints a random 48-bit salt woven into every token, so a placeholder reads `[GIVEN_NAME_1.9f3a2c7b41d0]` rather than the guessable `[GIVEN_NAME_1]`. `reveal` restores a value only for a token whose exact salt is in the live table, so a token from another session, or one an attacker writes by hand, resolves to nothing. `reset` re-mints the salt at a conversation boundary, so a stale token from a prior conversation goes inert.
+- **Inbound neutralization.** `protect` rewrites any placeholder-shaped run in the user's own text to a full-width-bracket lookalike before the model sees it, length-preserving so detection offsets are unchanged, so a token a user pastes cannot round-trip back into a real value.
+- **Fail-closed.** If detection errors, times out, or the inference worker crashes, `protect` rejects rather than returning unredacted text. A worker crash rejects every in-flight call.
+- **Bounded work.** Input over a configurable cap (default 100,000 characters) is rejected before any pass touches it, and in worker mode a stalled load or detection fails after a timeout instead of hanging. The streaming reveal caps its held buffer so an unclosed-token flood stays linear rather than quadratic.
+- **Reproducible model with recorded integrity.** The model is not fetched from a host; it is built from the committed training pipeline, and its ONNX SHA-256 is recorded, so integrity comes from a reproducible build a deployer can verify rather than trust in a remote artifact that could be swapped.
 
-### 4.2 The selection matrix
+The trust boundary is explicit: `reveal` restores real PII, so it is run only on trusted model output about to be shown to the same user whose data is in the table, never on text forwarded to another party. This surface is not covered by Rampart's paper.
 
-To choose the data recipe and the prefilter strategy, we ran a Cartesian ablation rather than tuning one variable at a time.
-Twelve cells per base — **prefilter** {on, off} × **data mix** {synthetic-only, +OCR'd documents, +AI4Privacy templates} × **corpus volume** {100k, 250k synthetic conversations} — each fine-tuned, exported to its Q4 and vocab-trimmed artifacts, and scored _end-to-end through its matching runtime_ (prefilter-on cells run with the deterministic layer; prefilter-off cells run the model raw).
-Across both bases that is 24 trained models, scored under both runtime modes.
+## 7. Related work
 
-Scoring used a deliberately hard internal development suite — 55 hand-written chat cases (66 private terms) skewed toward the failure modes we most wanted to catch: hyphenated and particled names, non-Latin-script names, address fragments, government identifiers, split and dotted contact details.
-It is **not** the shipped held-out metric (the 98.42% headline is measured on 30k OpenPII rows, §3.3); these are the much harder, much smaller dev numbers we used to rank _directions_, and the shipped model is many training iterations beyond this round.
-The matched-runtime results:
+**Rampart** is the direct antecedent, the project this one forks, and the source of the architecture, recipe, and base layers. Its whitepaper compares Rampart against a community BERT-small detector, Microsoft Presidio with spaCy, GLiNER small v2.1, and AWS Bedrock Guardrails on an English and Spanish slice, where the open baselines trailed on retention (GLiNER and BERT-small kept around 33.5% of public context) and are Python- or cloud-only, so they cannot run in the shipped TypeScript form factor. curtain-privacy inherits that comparison and adds its own trained model, a stricter metric, and a security model.
 
-| Base    | Best cell (data mix / volume / prefilter) | Dev recall | Worst cell                                                           |
-| ------- | ----------------------------------------- | ---------: | -------------------------------------------------------------------- |
-| MiniLM  | +AI4Privacy / 250k / prefilter-on         |  **80.3%** | 21.2% (no-prefilter, 250k synthetic, full mix — a training collapse) |
-| ELECTRA | +AI4Privacy / 100k / prefilter-on         |      81.8% | 42.4% (no-prefilter, 250k, synthetic-only)                           |
+**OpenAI Privacy Filter** is the closest peer in design intent: an open-weight token classifier under Apache 2.0 with BIOES span decoding, eight detection categories, and a reported F1 of 97.4% on the corrected `pii-masking-300k` benchmark. It is a strong choice for an application with a server it trusts and documents that justify a round-trip. It is a 1.5B-parameter model (50M active, MoE-style), two orders of magnitude beyond a browser-deployment budget, and its inference shape is built for server-side throughput on long documents rather than sub-10 ms client-side redaction during a chat turn. The two systems solve an overlapping problem under different deployment constraints.
 
-Three findings drove the recipe:
+**Generative anonymizers** such as `ai4privacy/llama-ai4privacy-english-anonymiser-openpii` are high quality on their native distribution but multiple gigabytes in size and hundreds of milliseconds to seconds per turn, so they are not client-deployable, and running them on a server reintroduces the threat-model problem. A generative model also rewrites text rather than emitting spans, which makes calibration, span F1, and policy-driven keep-sets harder to define and audit than a token classifier with a deterministic post-processing layer.
 
-1. **The full data mix produced every top cell.** On both bases the highest-recall configurations folded in all three sources; synthetic-only cells trailed. Breadth of corpus, not volume of one source, moved the needle.
-2. **MiniLM scaled with data; ELECTRA did not** (§4.1). MiniLM's best cell used the larger slice; all of ELECTRA's best cells used the smaller one.
-3. **One cell collapsed.** The MiniLM no-prefilter / 250k synthetic / full-mix cell scored 21.2% — a reminder that more data and more classes can destabilize training, and the reason every candidate is scored end-to-end before it is trusted, never assumed good from its loss curve.
+The **ai4privacy / OpenPII** corpus is the dataset lineage shared across most of this space, and the corpus curtain-privacy trains on.
 
-The prefilter-on configuration won on its merits here and matches the runtime: the deterministic layer is a checksum away from perfect on the digit classes, so making the model relearn them only adds variance.
+## 8. Limitations
 
-### 4.3 Prefolded normalization
+1. **Cross-locale name fairness.** The training data is Latin-script only, so recall on non-Latin scripts (Han, Arabic, Cyrillic, and others) is low and those scripts are out of scope. The system is scoped to US inputs and the 24 Latin-script languages it trains on. Extending coverage is a matter of adding non-Latin training data and a matching eval, which this release does not include.
+2. **Adversarial robustness.** Detection runs on a normalized view of the input: zero-width and invisible characters are removed, compatibility and fullwidth forms and cross-script homoglyphs are folded to their ASCII skeleton, and unusual spaces are regularized. This closes single-vector obfuscation such as zero-width characters between the digits of an SSN or a Cyrillic lookalike inside an email. It does not make the system attacker-proof: a motivated user composing novel or layered evasions can still get through, and the normalization is a detection lens only, so the user's non-PII text is preserved unchanged. The system remains designed for good-faith users, not for stopping someone who is actively trying to smuggle PII past the filter.
+3. **Government-style identifiers.** Custom-prefixed identifiers with no checksum and no standard structure are covered from two directions: the model now trains on GOVERNMENT_ID augmentation, and the context-cued recognizer (§3.1) backs it up. Together they reach every such identifier on the real-world corpus. The recognizer still leans on an identity cue near the code, so a genuine identifier stated with no cue and in a format the model also misses could slip through; the training augmentation reduces that surface but does not prove it closed.
+4. **Indirect identifiers.** Inferential leaks, such as a rare condition combined with a ZIP code, are out of scope. The system redacts terms, not statistical fingerprints.
+5. **The reveal trust boundary.** The salted placeholder layer stops a forged or pasted token from being revealed, but reveal still restores real PII by design, so an integrator who runs it on untrusted output or forwards the result defeats the guarantee. §6 states the boundary.
 
-All training rows pass through the same normalization the runtime applies before tokenization: lowercase, NFKD decomposition, and combining-mark stripping.
-The combining-mark step is what folds accents — `José` becomes `jose`, `Müller` becomes `muller`, `François` becomes `francois` — so the model sees a single canonical form regardless of how the user typed the name.
+## 9. Reproducibility
 
-We do this for two reasons.
-First, BERT's BasicTokenizer already performs the same fold implicitly at inference time under `do_lower_case=True` with default accent-stripping, so prefolding the training data makes the train-time and runtime distributions identical by construction; without it, the model would learn token sequences containing combining marks that the runtime tokenizer would never emit.
-Second, accent collapse is a robustness property we want: a user who types `Jose` and a user who types `José` should be redacted identically, and an attacker who substitutes one for the other to evade detection should fail.
-Prefolding bakes that property into the training distribution rather than relying on the runtime to recover it after the fact.
+Every quantitative claim traces to committed evidence produced by the artifact itself. The frozen OpenPII benchmark runs the shipped TypeScript pipeline over a pinned held-out slice and writes the per-run manifest the §5.1 numbers cite. The 157-case real-world corpus, the 300-case fairness corpus, and their scorers are committed, and the CI regression gate runs the real-world eval on every change and fails the build if protected-rate drops below 0.97 or keep-violation rises above 0.03, so the headline real-world numbers cannot silently regress. The training pipeline is committed as well: the from-base fine-tune, the augmentation generators, and the vocab-trim and quantization export, so the model is rebuilt from the public base checkpoint and OpenPII rather than taken on trust. The model is not hosted; a deployer builds it locally and loads it by path, and its ONNX SHA-256 is recorded so any build can be verified against the reference. The library, deterministic layer, training and eval harnesses, model weights, and this document are released under the MIT License. The training data it uses (ai4privacy/OpenPII) is CC BY 4.0 and the MiniLM base checkpoint is MIT; see NOTICE for attributions.
 
-A guard in the training pipeline fails the run if a future tokenizer change breaks this assumption, so retraining with a cased base model cannot silently desync the two normalizations.
-Because prefolding already produces the canonical form, separate accent-augmentation (training on both `José` and `Jose` as distinct strings) is disabled — it would be a no-op against an already-folded corpus.
+## 10. Conclusion
 
-## 5. Comparison to public PII baselines
+curtain-privacy trains a strong, small, browser-deployable model and builds a more strictly measured and more defensible system around it. The measurement change is the core of the contribution: a character-level, occurrence-anchored metric does not credit a boundary leak as a save, and scoring against it made a class of under-covered spans visible and fixable, which the recognizer and training work then closed. The security model treats the reversible-placeholder layer as the attack surface it is, so redaction stays usable in a chat without becoming an exfiltration channel.
 
-During model selection we ran a one-off comparison of Rampart against public PII systems — a community BERT-small detector, Microsoft Presidio + spaCy, GLiNER small v2.1, and AWS Bedrock Guardrails — on the English+Spanish slice under identical scoring rules.
-On that slice Rampart reached 98.85% private-term recall; the open baselines trailed on retention in particular (GLiNER and BERT-small kept ~33.5% of public context), and the cloud incumbent trailed on both recall and latency.
-Also of note, those systems are Python- or cloud-only (Presidio, GLiNER/torch, Bedrock) and cannot run in the shipped TypeScript form factor.
+The worst case for a downstream leak is bounded by what the client failed to redact, not by the entire raw conversation. The constraints adopted here, browser-deployable size, recall-biased calibration, defense in depth, and no network dependency at inference, are specific to the threat model in which the user's unredacted text must never leave the device. Under that threat model, this is a deployable system with an auditable floor. The next round of work is coverage the training data does not yet reach, non-Latin scripts first.
 
-## 6. Calibration
+## Acknowledgments
 
-The runtime applies a single recall-biased confidence floor (`minScore` = 0.4) uniformly across the model's labels, chosen against the 10,000-row OpenPII Latin calibration split (disjoint from test).
-There is no per-label threshold table in the shipped runtime: classes the model alone is weak on — SSN, CREDIT_CARD — are not propped up with a tuned threshold but covered by the deterministic layer's checksum/structural validation, which is the system of record for them (with EMAIL, URL, and IP_ADDRESS covered by pattern match).
-Phone, routing, government-ID, passport, and license numbers carry no checksum and are left to the model under the same floor.
-Trading a miss (which leaks data) against the cheaper failure of over-redaction is the explicit policy choice here, not a model regression.
-
-ECE on the 30,000-row test set is **0.018** for the model alone (well-calibrated, no post-hoc isotonic correction needed) and **0.291** for the full system.
-The system-level ECE is higher because the deterministic layer always emits score 1.0 on its detections, making the score distribution bimodal — that is a score-distribution artifact of the union, not a calibration regression of the underlying model.
-
-## 7. Schema reconciliation
-
-The 91.69% retention number on the headline test is term-presence scoring that already credits the keep-set (city/state/ZIP) as kept, matching the Rampart policy. We analyzed the 7,244 remaining "over-redacted" public terms in the 30,000-row eval:
-
-- The vast majority are policy-driven redactions of street-line components (street name, building number, secondary address line). OpenPII marks `STREET`, `BUILDINGNUM`, and `SECADDRESS` as `O` (public); the Rampart policy redacts the precise street line (`BUILDING_NUMBER` + `STREET_NAME`) and `SECONDARY_ADDRESS` while keeping `CITY`, `STATE`, and `ZIP`. These are not detector errors; they are the policy firing as designed.
-- A smaller share are span-edge artifacts. The runtime's particle-rescue step grows name spans (`GIVEN_NAME` / `SURNAME`) to swallow capitalized particles ("De la", "Von", "Mc"). When an adjacent public token is itself capitalized, that token can be absorbed into the redacted span.
-- A very small fraction are digit fragments inside longer correctly-redacted spans (e.g. "376" found inside a redacted 16-digit credit card, surfacing as a "kept token" because the gold schema marks individual digits separately from the card number).
-
-We publish the term-presence number for like-for-like comparison with public PII benchmarks running the same scoring rules.
-Under policy-aware scoring the retention exceeds 99%.
-
-## 8. Systems we considered and did not adopt
-
-Two widely-discussed alternatives are worth addressing directly because each is a plausible default for a team starting from scratch on this problem.
-
-**OpenAI Privacy Filter.** OpenAI released an open-weight token-classification model under Apache 2.0 ([announcement](https://openai.com/index/introducing-openai-privacy-filter/)) with a similar shape to ours: bidirectional token classification with BIOES span decoding via constrained Viterbi, eight detection categories (person, address, email, phone, URL, date, account number, secret), and reported F1 of 97.4% on the corrected `pii-masking-300k` benchmark.
-It is the closest peer to Rampart in design intent, and we evaluated it as a candidate.
-
-We did not adopt it for two reasons.
-(1) Size: the released model is 1.5B total parameters (50M active, MoE-style routing).
-Even with aggressive quantization the on-disk footprint is two orders of magnitude beyond our 15 MB browser-deployment target, and the active-parameter count alone exceeds what we can ship to a low-end device over the wire.
-(2) Inference shape: a 1.5B-parameter forward pass with a 128k-token context window is engineered for server-side or workstation-class throughput on long documents, not for sub-10 ms per-keystroke client-side redaction during a chat turn.
-The two systems are solving overlapping problems with different deployment constraints, and the OpenAI model's strengths (long-context coherence, fine-tunability for domain adaptation) are orthogonal to ours (browser-deployable size, encoder-only latency, per-class checksum validation through the deterministic layer).
-For applications that have a server they trust and documents that justify the round-trip, the OpenAI model is a strong choice; for an application whose contract is "the user's text never leaves the device," it is too large to deploy on the device.
-
-**`ai4privacy/llama-ai4privacy-english-anonymiser-openpii`.**
-A Llama-family fine-tune trained on the same OpenPII corpus we used.
-The model is high quality on its native distribution and was a serious candidate.
-We did not adopt it for three reasons.
-(1) Size: the released artifact is multiple gigabytes, three orders of magnitude larger than our 15 MB target and incompatible with browser deployment on the low-end devices we need to support.
-(2) Inference cost: a Llama-class generative anonymizer takes hundreds of milliseconds to seconds per turn even on accelerated hardware, versus 6.6 ms for an encoder pass; running it on the client is not viable, and running it on the server reintroduces the threat-model problem above.
-(3) Generative outputs require a different correctness story — the model rewrites text rather than emitting spans, which makes calibration, span F1, and policy-driven keep-sets harder to define and audit.
-A token classifier with a deterministic post-processing layer is a much smaller surface area to reason about for a system whose contract is "do not leak."
-
-Both systems are good engineering for their intended deployment shape.
-Neither is a substitute for client-side redaction when the goal is to prevent data from reaching any server in the first place.
-
-## 9. Limitations
-
-The model card enumerates each documented failure with statistics. The most consequential:
-
-1. **Cross-locale name fairness.** Recall on Faker-generated names spans 15 naming traditions; non-Latin scripts (Korean, Han Chinese, Japanese, Arabic, South Asian, Slavic) are below 50%. This is the most important regression to close in subsequent training cycles and is tracked by a stratified regression test in the eval suite.
-2. **Adversarial robustness.** The system catches 86.4% of a 20-case adversarial suite. Combined attacks (homoglyph plus whitespace-split, deep zero-width injection inside checksum-valid identifiers) can still bypass the union of the two layers. The deterministic layer raises the floor on structured classes but does not close the gap on unstructured identifiers under composed perturbations. This is the right framing for the limitation, not the primary use case: Rampart is designed to protect users who are entering their own information in good faith from incidental disclosure to downstream services, not to defeat a motivated user who is actively trying to smuggle their own PII past the filter. Adversarial cases are scored to characterize the failure surface and to surface regressions, not because circumventing one's own redactor is the threat model.
-3. **Indirect identifiers.** Inferential leaks — e.g. a rare medical condition combined with a ZIP code — are out of scope. The system redacts terms, not statistical fingerprints.
-
-## 10. Reproducibility
-
-The training pipeline and the benchmark are released under CC BY 4.0.
-The benchmark (`eval/bench`) runs the shipped TypeScript pipeline over a frozen OpenPII held-out slice and writes the per-run `summary.json` / `by_language.json` that the published numbers cite, so every figure traces to committed evidence produced by the artifact itself.
-The held-out row `uid`s are pinned in a committed manifest; `bun run bench:fetch` regenerates the rows and `bun run bench` reproduces the numbers.
-
-## 11. Conclusion
-
-Rampart is harm reduction. No client-side redactor at this size will catch every leak, and we do not claim otherwise — §9 documents the classes where the system underperforms and the eval suite is structured so future regressions surface immediately.
-What it provides is a defensible floor: text is filtered through two complementary layers and replaced with stable placeholders before any server sees it, so the worst case for a downstream leak is bounded by what the client failed to redact, not by the entire raw conversation.
-
-We release the model, deterministic layer, and eval suite under CC BY 4.0 so any team building privacy-sensitive software can use, audit, fork, and improve it.
-The constraints adopted here — browser-deployable size, recall-biased calibration, defense in depth, no network dependency at inference — are specific to the threat model in which the user's unredacted text must never leave the device.
-Other deployment shapes warrant other tradeoffs; under this one, the system reported here is a deployable baseline against which future work can be measured.
+This work is a fork of **Rampart** by National Design Studio, whose encoder architecture, training recipe, base deterministic layer, span repair, and calibration it inherits. It uses the **ai4privacy / OpenPII** corpus for training and evaluation. The **OpenAI Privacy Filter** and the other systems in §7 informed the design comparison. Released under the MIT License; see NOTICE for third-party attributions.

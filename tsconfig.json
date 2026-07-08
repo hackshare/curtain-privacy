@@ -10,8 +10,9 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "ignoreDeprecations": "6.0"
   },
-  "include": ["src", "eval", "index.ts"],
+  "include": ["src", "eval", "train", "index.ts"],
   "exclude": ["eval/bench/webgpu.ts"]
 }
