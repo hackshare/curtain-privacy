@@ -85,13 +85,18 @@ export interface NerOptions {
    * Required: build the model with the `train/` pipeline and pass its path.
    */
   readonly model?: string;
+  /**
+   * Hugging Face revision (commit or tag) to pin when `model` is a HF id, so an
+   * integrator loads the exact audited weights. Ignored for a local path.
+   */
+  readonly revision?: string;
   /** Backend. `"wasm"`/`"webgpu"` in browsers; `"cpu"` for Node (ORT). */
   readonly device?: "wasm" | "webgpu" | "cpu";
   /** Spans below this score are discarded. Low default → recall-biased. */
   readonly minScore?: number;
 }
 
-const DEFAULT_OPTIONS: Required<Omit<NerOptions, "model">> = {
+const DEFAULT_OPTIONS: Required<Omit<NerOptions, "model" | "revision">> = {
   device: "wasm",
   minScore: 0.4,
 };
@@ -132,6 +137,19 @@ const LEFT_PARTICLE_RE = /([\p{Lu}][\p{L}\p{M}\u2019']{0,3})([\s'\u2019.-]{1,3})
 const RIGHT_PARTICLE_RE = /^([\s'\u2019.-]{1,3})([\p{Lu}][\p{L}\p{M}\u2019']{0,3})/u;
 
 /**
+ * The options object handed to the transformers.js token-classification pipeline.
+ * Kept pure and exported so the revision-pinning behaviour is unit-tested without
+ * loading a model. `revision` is included only when a non-empty value is given.
+ */
+export function nerPipelineOptions(opts: {
+  device: NerOptions["device"];
+  revision?: string;
+}): { dtype: "q4"; device: NerOptions["device"]; revision?: string } {
+  const base = { dtype: "q4" as const, device: opts.device };
+  return opts.revision ? { ...base, revision: opts.revision } : base;
+}
+
+/**
  * Lazily construct the token-classification pipeline. transformers.js is a peer
  * dependency and a heavy import, so it is loaded on first use, not at module
  * load — keeping the heuristic path dependency-free.
@@ -145,10 +163,11 @@ export async function loadNerClassifier(options: NerOptions = {}): Promise<Token
         "and pass model: <path> to createGuard/loadNerClassifier, or use heuristicsOnly: true.",
     );
   }
-  const classifier = await pipeline("token-classification", options.model, {
-    dtype: "q4",
-    device: merged.device,
-  });
+  const classifier = await pipeline(
+    "token-classification",
+    options.model,
+    nerPipelineOptions({ device: merged.device, revision: options.revision }),
+  );
   // transformers.js's published types omit `aggregation_strategy` from
   // `TokenClassificationPipelineOptions` even though the runtime accepts it,
   // so we wrap the pipeline in a typed adapter rather than coercing the

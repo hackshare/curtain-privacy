@@ -13,4 +13,5 @@ dependencies = [
   "pytest>=8",
   "onnx-ir>=0.2.1",
   "faker>=30",
+  "huggingface_hub>=0.24",
 ]

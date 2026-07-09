@@ -71,6 +71,8 @@ export interface GuardOptions {
    * build the model with the `train/` pipeline and pass its path.
    */
   readonly model?: string;
+  /** HF revision (commit or tag) to pin when `model` is a HF id. */
+  readonly revision?: string;
   /** Worker script URL. When set, NER runs off the main thread. */
   readonly worker?: string | URL;
   /** Backend. `"wasm"`/`"webgpu"` in browsers; `"cpu"` for Node. */
@@ -218,7 +220,7 @@ export class ChatGuard {
   }
 }
 
-type NerLoadOptions = Pick<GuardOptions, "model" | "worker" | "minScore" | "device" | "operatingPoint" | "thresholdOverrides" | "workerTimeoutMs">;
+type NerLoadOptions = Pick<GuardOptions, "model" | "revision" | "worker" | "minScore" | "device" | "operatingPoint" | "thresholdOverrides" | "workerTimeoutMs">;
 
 /** Reject if `p` has not settled within `ms`, so a wedged worker cannot hang the
  * caller forever. */
@@ -242,10 +244,10 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 }
 
 async function buildNer(options: NerLoadOptions): Promise<NerDetector> {
-  const { model, worker, minScore, device = "wasm", operatingPoint = "balanced", thresholdOverrides } = options;
+  const { model, revision, worker, minScore, device = "wasm", operatingPoint = "balanced", thresholdOverrides } = options;
   const timeoutMs = options.workerTimeoutMs ?? DEFAULT_WORKER_TIMEOUT_MS;
   const threshold = minScore !== undefined ? minScore : resolveThresholds(operatingPoint, thresholdOverrides);
-  const modelOptions = { model, device, minScore };
+  const modelOptions = { model, revision, device, minScore };
 
   if (worker !== undefined) {
     // The DOM `Worker` types `onmessage` with `MessageEvent`; `WorkerMessagePort`
@@ -262,9 +264,10 @@ async function buildNer(options: NerLoadOptions): Promise<NerDetector> {
 }
 
 /**
- * Build a conversation guard. Loads the Rampart classifier (q4 ONNX) by default.
- * Pass `model` for a different Hugging Face id or local path, `heuristicsOnly:
- * true` to skip NER, or `ner` to inject a custom detector.
+ * Build a conversation guard. There is no default model: pass `model` (a Hugging
+ * Face id such as `hackshare/curtain-privacy`, optionally with `revision`, or a
+ * local path), `heuristicsOnly: true` to skip NER, or `ner` to inject a custom
+ * detector.
  */
 export async function createGuard(options: GuardOptions = {}): Promise<ChatGuard> {
   const { aliases = DEFAULT_ALIASES, keepLabels, noPrefilter, ner, heuristicsOnly, maxInputChars, ...nerLoad } = options;

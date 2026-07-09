@@ -53,6 +53,8 @@ The model runs alongside a deterministic recognizer layer that handles structure
 
 The model is not fetched from a host. It is built locally from the committed training pipeline (`train/`) and loaded by path; see "Reproducibility" for the build.
 
+The model is also distributed at [`hackshare/curtain-privacy`](https://huggingface.co/hackshare/curtain-privacy) on Hugging Face; pin revision `v1`; serving files and integration recipes are in [`train/hf_card.md`](train/hf_card.md).
+
 curtain-privacy is a fork of **Rampart** by National Design Studio, inheriting its encoder architecture, training recipe, and base deterministic layer. `curtain` is trained by curtain-privacy from the public base checkpoint on OpenPII plus targeted augmentation; it is not Rampart's released weights. The numbers below are this model's own, scored end-to-end through the shipped pipeline under a character-level metric (see "Evaluation").
 
 ## Model summary

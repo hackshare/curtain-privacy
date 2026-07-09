@@ -34,6 +34,21 @@ const restored = guard.reveal(reply);
 
 The `curtain` model is a 14.2 MB 4-bit ONNX token classifier (MiniLM-L6-H384, 19,730-piece vocab, INT8 embedding) that runs on CPU via transformers.js, in the browser or Node. It is not fetched from a host: you build it from the committed training pipeline in `train/` (a from-base fine-tune on OpenPII plus augmentation, then vocab trim and quantization) and load it by path. See `MODEL_CARD.md` for the numbers and [`train/BUILD.md`](train/BUILD.md) for the step-by-step build.
 
+### Hosted model
+
+The model is also published at [`hackshare/curtain-privacy`](https://huggingface.co/hackshare/curtain-privacy) on Hugging Face. For web and Node, pass the Hugging Face repo id and pin a revision:
+
+```ts
+const guard = await createGuard({ model: "hackshare/curtain-privacy", revision: "v1" });
+```
+
+For iOS and Android, fetch these two files from the pinned resolve URL:
+
+- `https://huggingface.co/hackshare/curtain-privacy/resolve/v1/onnx/model_q4.onnx`
+- `https://huggingface.co/hackshare/curtain-privacy/resolve/v1/tokenizer.json`
+
+The local-build path (above) remains the maximum-integrity option: you control the artifact end to end and can verify its SHA-256 directly. For the hosted path, integrity comes from pinning revision `v1` and checking the published SHA-256; on web, transformers.js fetches the files internally so the guarantee is revision-pinning plus transport security, not a local hash check. See [`train/hf_card.md`](train/hf_card.md) for the full integration recipes.
+
 ## Policy
 
 The default keep-set is city, state, and ZIP. Everything else the classifier or the deterministic recognizers identify as PII is redacted: given names, surnames, phone numbers, email addresses, SSNs, credit card numbers, tax IDs, passport and license numbers, IP addresses, bank account numbers, street names, and building numbers.
