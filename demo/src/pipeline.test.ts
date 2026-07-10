@@ -22,3 +22,11 @@ test("hands the reply source only redacted text, reveals, and maps correctly", a
     { placeholder: "[EMAIL_1.s]", label: "EMAIL", value: "b@x.com" },
   ]);
 });
+
+test("strips placeholder-shaped tokens a weak model invents", async () => {
+  // reveal restores the real token; the invented [BROOKVALLE.<hex>] is not a real
+  // token, so it must be cleaned rather than shown.
+  const reply = async () => "Hi [GIVEN_NAME_1.s], I noted [BROOKVALLE.f36bf60b70f1] for you.";
+  const turn = await runTurn(guard, reply, "My name is Alex, email b@x.com");
+  expect(turn.reply).toBe("Hi Alex, I noted for you.");
+});

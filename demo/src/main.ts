@@ -13,7 +13,7 @@ try {
   ui.setStatus("Loading the redaction model...");
   const guard = await loadGuard();
   ui.setStatus(hasWebGpu() ? "Loading the on-device LLM..." : "Ready.");
-  const reply = await makeReplySource((p) => ui.setStatus(`Loading LLM... ${describe(p)}`));
+  const reply = await makeReplySource((p) => ui.setStatus(`Loading the on-device LLM... ${describe(p)}`));
   ui.setStatus(READY);
   ui.setBusy(false);
 
@@ -25,16 +25,23 @@ try {
       ui.addTurn(await runTurn(guard, reply, text));
       ui.setStatus(READY);
     } catch (e) {
-      ui.setStatus(`Error: ${(e as Error).message}`);
+      ui.setStatus(`Error: ${errText(e)}`);
       ui.setError(true);
     } finally {
       ui.setBusy(false);
     }
   });
 } catch (e) {
-  ui.setStatus(`Could not load the demo: ${(e as Error).message}`);
+  console.error("demo load failed", e);
+  ui.setStatus(`Could not load the demo: ${errText(e)}`);
   ui.setError(true);
   ui.setBusy(false);
+}
+
+function errText(e: unknown): string {
+  if (e instanceof Error && e.message) return e.message;
+  if (typeof e === "string" && e) return e;
+  return "see the browser console for details";
 }
 
 function describe(p: unknown): string {

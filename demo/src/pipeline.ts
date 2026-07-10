@@ -11,6 +11,20 @@ export interface TurnGuard {
 /** Produces the assistant reply from the redacted (placeholdered) text only. */
 export type ReplySource = (redactedText: string) => Promise<string>;
 
+// A placeholder-shaped token: [LABEL.salt] with a hex salt. reveal() has already
+// restored every real token, so any leftover match is one a weak reply model
+// invented (e.g. wrapping a kept city in brackets); strip it rather than surface a
+// broken token to the user.
+const ORPHAN_TOKEN_RE = /\[[A-Za-z0-9_]+\.[0-9a-f]{6,}\]/g;
+
+function cleanReply(revealed: string): string {
+  return revealed
+    .replace(ORPHAN_TOKEN_RE, "")
+    .replace(/ {2,}/g, " ")
+    .replace(/ +([.,!?;:])/g, "$1")
+    .trim();
+}
+
 export interface Turn {
   original: string;
   redacted: string;
@@ -35,6 +49,6 @@ export async function runTurn(guard: TurnGuard, reply: ReplySource, original: st
     placeholders: [...placeholders],
     mapping: buildMapping(spans, placeholders),
     sentReply,
-    reply: guard.reveal(sentReply),
+    reply: cleanReply(guard.reveal(sentReply)),
   };
 }
