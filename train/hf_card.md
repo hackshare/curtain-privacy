@@ -16,6 +16,23 @@ language:
   - it
   - pt
   - nl
+  - pl
+  - cs
+  - sk
+  - lt
+  - lv
+  - et
+  - sv
+  - da
+  - fi
+  - hu
+  - ro
+  - sl
+  - hr
+  - vi
+  - ms
+  - id
+  - tl
 ---
 
 # curtain-privacy

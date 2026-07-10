@@ -2,6 +2,8 @@
 
 curtain-privacy is a client-side PII filter for LLM chat. It removes the names, SSNs, card numbers, and other PII it detects before text leaves the device, keeping only city, state, and ZIP, so most raw PII is stripped on the client instead of reaching a server or log. Each redacted value gets a stable, typed placeholder (`[GIVEN_NAME_1]`, `[SSN_1]`) that persists across the full conversation. When the model replies, one call restores the real values before the user sees anything.
 
+**Try it in your browser:** [curtain.hackshare.com](https://curtain.hackshare.com) runs the full redaction round-trip client-side, alongside a panel showing exactly what a model would receive.
+
 ## Install
 
 The package is not on npm yet. Install it from the Git repo; it builds itself on
@@ -68,7 +70,7 @@ Placeholders are stable within a session. If a user's name appears five times in
 
 curtain-privacy covers US inputs and 24 Latin-script languages: English, Spanish, French, German, Italian, Portuguese, Dutch, Polish, Czech, Slovak, Lithuanian, Latvian, Estonian, Swedish, Danish, Finnish, Hungarian, Romanian, Slovenian, Croatian, Vietnamese, Malay, Indonesian, and Tagalog.
 
-On a frozen 30,000-row slice of OpenPII (the primary benchmark): 98.2% of private occurrences are fully protected and 96.4% of public text is preserved. On a hand-curated real-world eval of 157 cases, the protected rate is 99.8%, and on a 300-case held-out fairness corpus it is 99.4%.
+On a frozen 30,000-row slice of OpenPII (the primary benchmark): 98.2% of private occurrences are fully protected and 96.4% of public text is preserved. On a hand-curated real-world eval of 157 cases, the protected rate is 99.76%, and on a 300-case held-out fairness corpus it is 99.4%.
 
 Adversarial caveat: detection normalizes input first, so single-vector obfuscation such as zero-width characters or cross-script homoglyphs is handled, but a motivated user composing novel or layered evasions can still get through. The system is designed to protect users who are entering their own information in good faith from incidental disclosure to downstream services. It's not designed to stop someone actively trying to smuggle PII past the filter.
 

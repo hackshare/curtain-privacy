@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+
+<rect width="64" height="64" rx="14" fill="#F2EFE3"></rect>
+<text x="32" y="43" text-anchor="middle" font-family="Menlo,'SF Mono',Consolas,monospace" font-size="30" font-weight="600"><tspan class="b" fill="#3B6FE0">[</tspan><tspan class="c" fill="#1A1A18">c</tspan><tspan class="b" fill="#3B6FE0">]</tspan></text>
+</svg>

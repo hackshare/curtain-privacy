@@ -1,11 +1,16 @@
 node_modules/
 dist/
+demo/dist/
+demo/node_modules/
+demo/design/
 eval/bench/data/
 eval/bench/runs/
 eval/multilingual/data/
 train/data/
 train/runs/
 train/.venv/
+train/*.tar.gz
+train/SHA256SUMS
 .commit-msg
 *.log
 

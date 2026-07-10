@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>curtain · PII redaction that runs in your browser</title>
+<link rel="icon" href="/assets/icons/icon.svg" type="image/svg+xml" />
+<link rel="manifest" href="/site.webmanifest" />
+<meta name="theme-color" content="#F2EFE3" />
+<link rel="stylesheet" href="./styles/curtain-privacy.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <a class="site-wordmark" href="#"><span class="wm-bracket">[</span>curtain<span class="wm-bracket">]</span></a>
+  <nav class="site-nav">
+    <a href="#how">How it works</a>
+    <a href="#guarantee">What stays local</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <h1 class="hero-title">Your name is none of the model's business.</h1>
+  <p class="hero-sub">curtain-privacy removes names, email addresses, and other identifiers from a chat message before any model sees it, then restores them in the reply. It runs entirely in your browser. After a one-time model download, nothing you type leaves this device. Try it below.</p>
+</section>
+
+<!-- The demo DOM is built by demo/src/ui.ts into this #app element. -->
+<div id="app"></div>
+<p class="demo-note">The first visit downloads two models from Hugging Face. That download is the only network activity on this page. The card on the right shows the exact text the assistant received after each turn.</p>
+
+<section class="site-section" id="how">
+  <p class="section-eyebrow">How it works</p>
+  <h2 class="section-title">Redact, generate, restore.</h2>
+  <div class="steps">
+    <div class="step">
+      <span class="step-num">01</span>
+      <h3>Redact</h3>
+      <p>Before your message goes anywhere, a small on-device model finds names, email addresses, and other identifiers and swaps each one for a placeholder like <code>[GIVEN_NAME_1.a3f9]</code>. The real values never enter the prompt.</p>
+    </div>
+    <div class="step">
+      <span class="step-num">02</span>
+      <h3>Generate</h3>
+      <p>The assistant works on the redacted text only. With WebGPU available, Qwen2.5-0.5B-Instruct runs locally in your browser. Without it, a scripted template writes the reply. Redaction runs the same either way.</p>
+    </div>
+    <div class="step">
+      <span class="step-num">03</span>
+      <h3>Restore</h3>
+      <p>Placeholders in the reply are swapped back to the original values on your device. You read a normal answer. The model only ever handled the placeholders.</p>
+    </div>
+  </div>
+</section>
+
+<section class="site-section" id="guarantee">
+  <p class="section-eyebrow">The fine print</p>
+  <h2 class="section-title">What on-device means here.</h2>
+  <div class="g-list">
+    <div class="g-item">
+      <h3>One download, then offline</h3>
+      <p>On first visit the page downloads two models from Hugging Face: the redaction model and, where WebGPU is available, the LLM. That is the only network request the demo makes. After it completes, redaction, generation, and restoration all run in your browser.</p>
+    </div>
+    <div class="g-item">
+      <h3>Nothing you type is sent</h3>
+      <p>There is no server behind this chat. Your message, the detected identifiers, and the mapping between real values and placeholders stay in the page. Close the tab and they are gone.</p>
+    </div>
+    <div class="g-item">
+      <h3>You can check</h3>
+      <p>The evidence card beside the phone shows the exact redacted text the assistant received after every turn, and the values that were detected and kept off the wire. You can also confirm in your browser's network inspector that no request follows the model download.</p>
+    </div>
+    <div class="g-item">
+      <h3>About the phone frame</h3>
+      <p>The iPhone shell is a visual cue that this approach is designed for native, on-device use. This page is a web demo; it does not run as a native iOS app.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <span class="site-wordmark"><span class="wm-bracket">[</span>curtain<span class="wm-bracket">]</span></span>
+  <span>A demo of in-browser PII redaction. No accounts, no telemetry, no server.</span>
+</footer>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

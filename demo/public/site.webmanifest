@@ -1,0 +1,12 @@
+{
+  "name": "curtain-privacy",
+  "short_name": "curtain",
+  "description": "In-browser PII redaction. Names and identifiers are removed before any model sees them, on your device.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F2EFE3",
+  "theme_color": "#F2EFE3",
+  "icons": [
+    { "src": "/assets/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

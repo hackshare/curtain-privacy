@@ -77,6 +77,8 @@ curtain-privacy is a fork of **Rampart** by National Design Studio, inheriting i
 
 The model is designed for **client-side redaction of user-typed text in AI assistants and intake flows**, replacing identifying values with stable placeholders before any data is transmitted to a model provider, a server, or a logging system.
 
+Try the full redaction round-trip in your browser at [curtain.hackshare.com](https://curtain.hackshare.com), which runs this model client-side alongside a panel showing exactly what a model would receive.
+
 ### Direct uses
 
 - Redact user content before passing it to a hosted LLM.
