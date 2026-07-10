@@ -6,7 +6,7 @@ export is excluded) plus the HF card, and prints the model_q4.onnx SHA-256 so it
 can be checked against SECURITY.md.
 
     HF_TOKEN=... uv run python publish_hf.py \
-        --model runs/model-latin24c-ship --repo hackshare/curtain-privacy --revision-tag v1
+        --model runs/model-latin24c-ship --repo hackshare/curtain-privacy --revision-tag v1.0.0
 """
 from __future__ import annotations
 import argparse
@@ -49,7 +49,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, help="built model dir, e.g. runs/model-latin24c-ship")
     ap.add_argument("--repo", required=True, help="HF repo id, e.g. hackshare/curtain-privacy")
-    ap.add_argument("--revision-tag", default=None, help="tag to create for this upload, e.g. v1")
+    ap.add_argument("--revision-tag", default=None, help="tag to create for this upload, e.g. v1.0.0")
+    ap.add_argument("--moving-ref", default=None, help="a tag to (re)point at this upload, e.g. v1.0.0")
     ap.add_argument("--card", default="hf_card.md", help="HF README/model-card source")
     ap.add_argument("--private", action="store_true", help="create the repo private (default public)")
     args = ap.parse_args()
@@ -70,6 +71,17 @@ def main() -> None:
     if args.revision_tag:
         api.create_tag(args.repo, tag=args.revision_tag, repo_type="model", exist_ok=True)
         print(f"tagged {args.revision_tag}")
+
+    if args.moving_ref:
+        # delete_tag has no missing_ok; the moving tag is absent on the first
+        # publish, so ignore a not-found delete. Auth is already proven by the
+        # uploads above, so a delete error here can only mean the tag was absent.
+        try:
+            api.delete_tag(args.repo, tag=args.moving_ref, repo_type="model")
+        except Exception:
+            pass
+        api.create_tag(args.repo, tag=args.moving_ref, repo_type="model", exist_ok=True)
+        print(f"moved {args.moving_ref}")
 
     print(f"model_q4.onnx sha256: {digest}")
     print(f"done: https://huggingface.co/{args.repo}")

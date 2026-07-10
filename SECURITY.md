@@ -9,7 +9,8 @@ model and dependencies are pinned.
 The library assumes untrusted user input and a downstream model that may be prompted,
 poisoned, or simply wrong. It aims to hold three properties:
 
-- **Raw PII stays on the device.** What leaves is placeholdered text; the mapping from
+- **Detected PII stays on the device.** The PII the system detects is replaced before
+  text leaves the device; what leaves is placeholdered text, and the mapping from
   placeholder to real value lives only in the session table and never crosses the wire.
 - **The pipeline fails closed.** If detection errors, times out, or the worker crashes,
   `protect` rejects. It never returns unredacted text on failure. A caller that catches

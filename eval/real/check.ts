@@ -21,19 +21,28 @@ export function checkReal(report: Report, t: RealThresholds): { ok: boolean; fai
   return { ok: failures.length === 0, failures };
 }
 
+/** The cases file to score: the `--cases <path>` value, or the real-eval default.
+ * Kept pure and exported so the fairness gate can reuse this scorer over a
+ * different cases file without a second copy of the harness. */
+export function casesPath(argv: string[]): string {
+  const i = argv.indexOf("--cases");
+  return i >= 0 && argv[i + 1] ? argv[i + 1] : "eval/real/cases.jsonl";
+}
+
 async function main(): Promise<void> {
   const model = process.env.CURTAIN_MODEL;
   if (!model) {
     console.error("set CURTAIN_MODEL to a built curtain model path (see train/) before running the gate");
     process.exit(1);
   }
-  const cases = loadCases("eval/real/cases.jsonl");
+  const casesFile = casesPath(process.argv.slice(2));
+  const cases = loadCases(casesFile);
   const classifier = await loadNerClassifier({ model, device: "cpu" });
   const threshold = resolveThresholds("balanced");
   const guard = new ChatGuard({ ner: (t) => detectNer(t, classifier, threshold) });
   const report = await runEval(cases, (t) => guard.detectRedactions(t));
   const result = checkReal(report, REAL_THRESHOLDS);
-  console.log(`real-eval gate: protected ${(report.overall.protectedRate * 100).toFixed(2)}%, keep_violation ${(report.overall.keepViolationRate * 100).toFixed(2)}% -> ${result.ok ? "PASS" : "FAIL"}`);
+  console.log(`eval gate [${casesFile}]: protected ${(report.overall.protectedRate * 100).toFixed(2)}%, keep_violation ${(report.overall.keepViolationRate * 100).toFixed(2)}% -> ${result.ok ? "PASS" : "FAIL"}`);
   if (!result.ok) { for (const f of result.failures) console.error(`  ${f}`); process.exit(1); }
 }
 

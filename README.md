@@ -1,12 +1,21 @@
 # curtain-privacy
 
-curtain-privacy is a client-side PII filter for LLM chat. It strips names, SSNs, card numbers, and every other PII class out of text before it leaves the device, keeping only city, state, and ZIP, so raw PII never reaches a server or log. Each redacted value gets a stable, typed placeholder (`[GIVEN_NAME_1]`, `[SSN_1]`) that persists across the full conversation. When the model replies, one call restores the real values before the user sees anything.
+curtain-privacy is a client-side PII filter for LLM chat. It removes the names, SSNs, card numbers, and other PII it detects before text leaves the device, keeping only city, state, and ZIP, so most raw PII is stripped on the client instead of reaching a server or log. Each redacted value gets a stable, typed placeholder (`[GIVEN_NAME_1]`, `[SSN_1]`) that persists across the full conversation. When the model replies, one call restores the real values before the user sees anything.
 
 ## Install
 
+The package is not on npm yet. Install it from the Git repo; it builds itself on
+install through its `prepare` script.
+
 ```sh
-npm i curtain-privacy "@huggingface/transformers@^3.7.5"
+bun add github:hackshare/curtain-privacy "@huggingface/transformers@^3.7.5"
+# or: npm i github:hackshare/curtain-privacy "@huggingface/transformers@^3.7.5"
 ```
+
+To pin an exact published build, append a release tag, for example
+`github:hackshare/curtain-privacy#v1.0.0-<timestamp>`. If your package manager
+skips install scripts, run `bun run build` (or `npx tsup`) in the installed package
+once to produce `dist/`.
 
 `@huggingface/transformers` is a peer dependency and must be installed alongside the library. Pin it to the 3.x line: the shipped numbers are measured against transformers 3.7.5, and 4.x shifts the model's detection output.
 
@@ -28,7 +37,7 @@ const reply = await yourLlm(text);
 const restored = guard.reveal(reply);
 ```
 
-`text` is safe to send to any LLM endpoint. `guard.reveal` puts the actual names and numbers back into the model's reply so the user sees their real data, not tokens. For a deterministic-only run without the model, pass `{ heuristicsOnly: true }`.
+`text` carries placeholders in place of the PII the system detected, so it can be sent to a model endpoint with downstream exposure bounded by what the client removed. `guard.reveal` puts the actual names and numbers back into the model's reply so the user sees their real data, not tokens. For a deterministic-only run without the model, pass `{ heuristicsOnly: true }`.
 
 ## The model
 
@@ -39,15 +48,15 @@ The `curtain` model is a 14.2 MB 4-bit ONNX token classifier (MiniLM-L6-H384, 19
 The model is also published at [`hackshare/curtain-privacy`](https://huggingface.co/hackshare/curtain-privacy) on Hugging Face. For web and Node, pass the Hugging Face repo id and pin a revision:
 
 ```ts
-const guard = await createGuard({ model: "hackshare/curtain-privacy", revision: "v1" });
+const guard = await createGuard({ model: "hackshare/curtain-privacy", revision: "v1.0.0" });
 ```
 
 For iOS and Android, fetch these two files from the pinned resolve URL:
 
-- `https://huggingface.co/hackshare/curtain-privacy/resolve/v1/onnx/model_q4.onnx`
-- `https://huggingface.co/hackshare/curtain-privacy/resolve/v1/tokenizer.json`
+- `https://huggingface.co/hackshare/curtain-privacy/resolve/v1.0.0/onnx/model_q4.onnx`
+- `https://huggingface.co/hackshare/curtain-privacy/resolve/v1.0.0/tokenizer.json`
 
-The local-build path (above) remains the maximum-integrity option: you control the artifact end to end and can verify its SHA-256 directly. For the hosted path, integrity comes from pinning revision `v1` and checking the published SHA-256; on web, transformers.js fetches the files internally so the guarantee is revision-pinning plus transport security, not a local hash check. See [`train/hf_card.md`](train/hf_card.md) for the full integration recipes.
+The local-build path (above) remains the maximum-integrity option: you control the artifact end to end and can verify its SHA-256 directly. For the hosted path, integrity comes from pinning revision `v1.0.0` and checking the published SHA-256; on web, transformers.js fetches the files internally so the guarantee is revision-pinning plus transport security, not a local hash check. See [`train/hf_card.md`](train/hf_card.md) for the full integration recipes.
 
 ## Policy
 

@@ -1,6 +1,6 @@
 {
   "name": "curtain-privacy",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -28,12 +28,13 @@
     "bench:fetch": "bun eval/bench/fetch.ts",
     "bench": "bun eval/bench/run.ts",
     "build": "tsup",
-    "prepare": "lefthook install",
+    "prepare": "tsup && (lefthook install || true)",
     "prepublishOnly": "bun run build",
     "test": "vitest run",
     "type-check": "tsc -p tsconfig.json --noEmit",
     "eval:real:check": "bun eval/real/check.ts",
-    "eval:adversarial": "bun eval/adversarial/run.ts"
+    "eval:adversarial": "bun eval/adversarial/run.ts",
+    "eval:fairness": "bun eval/real/check.ts --cases train/fairness/cases.jsonl"
   },
   "type": "module"
 }

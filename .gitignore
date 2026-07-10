@@ -8,6 +8,13 @@ train/runs/
 train/.venv/
 .commit-msg
 *.log
+
+# Internal planning artifacts: specs, plans, scope notes, and the
+# subagent-driven-development ledger. Kept out of the (public) repo; they are
+# working notes, not deliverables. Public docs live at the repo root
+# (README, WHITEPAPER, MODEL_CARD, SECURITY, CONTRIBUTING).
+docs/
+.superpowers/
 train/__pycache__/
 
 # Python bytecode (all dirs)

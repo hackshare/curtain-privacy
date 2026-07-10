@@ -38,19 +38,21 @@ distribution copy. Verify integrity by pinning a revision and checking the hash:
 ```js
 import { createGuard } from "curtain-privacy";
 
-const guard = await createGuard({ model: "hackshare/curtain-privacy", revision: "v1" });
+const guard = await createGuard({ model: "hackshare/curtain-privacy", revision: "v1.0.0" });
 const { text } = await guard.protect("My SSN is 472-81-0094");
 ```
 
-`revision: "v1"` pins the audited weights. transformers.js fetches from this repo
-with permissive CORS, so it works from any origin.
+`revision: "v1.0.0"` pins the audited weights. transformers.js fetches from this repo
+with permissive CORS, so it works from any origin. `v1.0.0` is a moving pointer to
+the latest build; to pin an immutable artifact, use the timestamped tag
+`v1.0.0-<timestamp>` published alongside each release.
 
 ### iOS and Android (ONNX Runtime Mobile)
 
 Fetch or bundle two files from a pinned revision:
 
-- `https://huggingface.co/hackshare/curtain-privacy/resolve/v1/onnx/model_q4.onnx`
-- `https://huggingface.co/hackshare/curtain-privacy/resolve/v1/tokenizer.json`
+- `https://huggingface.co/hackshare/curtain-privacy/resolve/v1.0.0/onnx/model_q4.onnx`
+- `https://huggingface.co/hackshare/curtain-privacy/resolve/v1.0.0/tokenizer.json`
 
 Verify `model_q4.onnx` against the SHA-256 above. Load the model with ONNX Runtime
 Mobile, tokenize with the Hugging Face `tokenizers` library (Swift and Kotlin

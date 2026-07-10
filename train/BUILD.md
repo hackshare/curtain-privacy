@@ -183,3 +183,36 @@ exported model directory (the one containing `onnx/` and the tokenizer files). I
 Node, pass `device: "cpu"`. In the browser, the model runs on `wasm` or `webgpu`
 via transformers.js. See `MODEL_CARD.md` for the model details and the recorded
 metrics.
+
+## Cut a release
+
+This section documents how to publish the ship model to Hugging Face as a versioned release.
+
+**Prerequisites.** The `HF_TOKEN` secret must be set in GitHub Actions
+(Settings > Secrets and variables > Actions) before the publish step will succeed.
+
+**1. Build the ship model** (Part B above), producing `runs/model-latin24c-ship`.
+
+**2. Tag and create the GitHub release.**
+
+```sh
+cd train
+uv run python cut_release.py --model runs/model-latin24c-ship --version 1.0.0
+```
+
+This script creates the timestamped tag `v1.0.0-<ts>` and publishes a live
+prerelease immediately. No draft state is used. The `release: published` event
+fires as soon as the script finishes, which triggers
+`.github/workflows/release-publish.yml` automatically. That workflow:
+
+1. Downloads the release asset and verifies the model SHA-256 recorded in the
+   release notes matches the artifact.
+2. Re-runs the real-157, adversarial, and fairness evaluation gates.
+3. Pauses for manual approval in the `hf-release` environment. You will receive
+   a notification and must approve the deployment in GitHub Actions before
+   publishing proceeds.
+4. On approval, publishes the artifact to `hackshare/curtain-privacy` on Hugging
+   Face at the timestamped tag `v1.0.0-<ts>` and advances the moving pointer `v1.0.0`.
+
+The moving `v1.0.0` pointer always points to the most recently published build.
+Callers who need an immutable pin should use `v1.0.0-<ts>` instead.
