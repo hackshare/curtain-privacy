@@ -23,12 +23,12 @@
 
 <section class="hero">
   <h1 class="hero-title">Your name is none of the model's business.</h1>
-  <p class="hero-sub">curtain-privacy removes names, email addresses, and other identifiers from a chat message before any model sees it, then restores them in the reply. It runs entirely in your browser. After a one-time model download, nothing you type leaves this device. Try it below.</p>
+  <p class="hero-sub">curtain-privacy detects names, email addresses, and other identifiers and replaces them with placeholders before any model sees your message, then restores them in the reply. It runs entirely in your browser. After a one-time model download, nothing you type leaves this device. Try it below.</p>
 </section>
 
 <!-- The demo DOM is built by demo/src/ui.ts into this #app element. -->
 <div id="app"></div>
-<p class="demo-note">The first visit downloads two models from Hugging Face. That download is the only network activity on this page. The card on the right shows the exact text the assistant received after each turn.</p>
+<p class="demo-note">The first visit downloads two models from Hugging Face. That download is the only network activity on this page. The card on the right shows the exact text the assistant received this turn. The assistant remembers the conversation, but every turn its whole context is placeholders; start over with New conversation.</p>
 
 <section class="site-section" id="how">
   <p class="section-eyebrow">How it works</p>
@@ -37,12 +37,12 @@
     <div class="step">
       <span class="step-num">01</span>
       <h3>Redact</h3>
-      <p>Before your message goes anywhere, a small on-device model finds names, email addresses, and other identifiers and swaps each one for a placeholder like <code>[GIVEN_NAME_1.a3f9]</code>. The real values never enter the prompt.</p>
+      <p>Before your message goes anywhere, a small on-device model finds the names, email addresses, and other identifiers it recognizes and swaps each one for a placeholder like <code>[GIVEN_NAME_1.a3f9]</code>. The real values never enter the prompt.</p>
     </div>
     <div class="step">
       <span class="step-num">02</span>
       <h3>Generate</h3>
-      <p>The assistant works on the redacted text only. With WebGPU available, Qwen2.5-0.5B-Instruct runs locally in your browser. Without it, a scripted template writes the reply. Redaction runs the same either way.</p>
+      <p>The assistant works on the redacted text only. With WebGPU available, Qwen2.5-0.5B-Instruct runs locally in your browser, a deliberately tiny model here to show the round-trip rather than to be a polished assistant. Without it, a scripted template writes the reply. Redaction runs the same either way.</p>
     </div>
     <div class="step">
       <span class="step-num">03</span>
@@ -67,6 +67,10 @@
     <div class="g-item">
       <h3>You can check</h3>
       <p>The evidence card beside the phone shows the exact redacted text the assistant received after every turn, and the values that were detected and kept off the wire. You can also confirm in your browser's network inspector that no request follows the model download.</p>
+    </div>
+    <div class="g-item">
+      <h3>Part rules, part model</h3>
+      <p>Emails, phone numbers, and IDs are matched by exact rules and do not slip. Names and addresses come from an on-device model that catches the large majority but can miss unusual phrasing. Either way, the card beside the chat shows the exact text the model received, so you can see what it caught and what it did not.</p>
     </div>
     <div class="g-item">
       <h3>About the phone frame</h3>

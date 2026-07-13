@@ -7,7 +7,9 @@ export interface MemoryTurn {
 }
 
 /** How many recent messages the model gets as context. Small enough that the 0.5B
- * model does not drown in history; the build-time multi-turn check settles it. */
+ * model does not drown in history; the build-time multi-turn check settles it. Keep
+ * this even so an evicted window still starts on a user turn, matching the chat
+ * template's [system, user, assistant, ...] alternation. */
 export const WINDOW_TURNS = 6;
 
 /**

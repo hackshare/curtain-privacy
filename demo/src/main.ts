@@ -41,6 +41,13 @@ try {
       ui.setBusy(false);
     }
   });
+
+  ui.onNewConversation(() => {
+    memory.clear();
+    guard.reset();
+    ui.resetChat();
+    ui.setStatus(READY);
+  });
 } catch (e) {
   console.error("demo load failed", e);
   ui.setStatus(`Could not load the demo: ${errText(e)}`);
