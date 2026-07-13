@@ -29,6 +29,7 @@ import { SessionEntityTable, neutralizePlaceholders, type PlaceholderAliases, ty
 import { extendSpans } from "./recognizers";
 import { resolveKeepLabels, type PiiLabel, type Span } from "./types";
 import { applyPolicy } from "./policy";
+import { reconcileSpans } from "./reconcile";
 import { resolveThresholds, type OperatingPoint } from "./thresholds";
 import { normalizeForDetection, remapSpan } from "./normalize";
 
@@ -153,7 +154,8 @@ export class ChatGuard {
   private async detectOnOriginal(safe: string): Promise<Span[]> {
     const nrm = normalizeForDetection(safe);
     const spans = await this.detect(nrm.text);
-    return spans.map((s) => remapSpan(s, nrm, safe));
+    const onOriginal = spans.map((s) => remapSpan(s, nrm, safe));
+    return reconcileSpans(safe, onOriginal, this.keepLabels);
   }
 
   /**
