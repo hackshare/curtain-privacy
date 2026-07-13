@@ -174,9 +174,9 @@ export function buildUi(root: HTMLElement): DemoUi {
   const showContext = (turn: Turn): void => {
     const verdict =
       `<div class="verdict">` +
-      `<div class="verdict-stat"><span class="verdict-n">${turn.mapping.length}</span><span class="verdict-lab">replaced this turn</span></div>` +
+      `<div class="verdict-stat"><span class="verdict-n">${turn.mapping.length}</span><span class="verdict-lab">replaced before the wire</span></div>` +
       `<div class="verdict-div"></div>` +
-      `<div class="verdict-stat"><span class="verdict-n verdict-wire">0</span><span class="verdict-lab">reached the model</span></div>` +
+      `<div class="verdict-stat verdict-claim-stat"><span class="verdict-claim">map stays on<br>your device</span></div>` +
       `</div>`;
 
     const ledger = turn.entities
@@ -191,7 +191,8 @@ export function buildUi(root: HTMLElement): DemoUi {
       .join("");
     const working =
       `<div class="tier-head"><span class="tier-title">What the model saw</span><span class="pill pill-wire">this turn</span></div>` +
-      `<div class="working">${ctxLines}</div>`;
+      `<div class="working">${ctxLines}</div>` +
+      `<p class="ctx-note">The exact text a model receives, local now or your own API later. Anything detection misses stays visible here.</p>`;
 
     verify.innerHTML = verdict + durable + working + modelReturnBlock(turn);
   };

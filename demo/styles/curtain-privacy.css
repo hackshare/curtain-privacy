@@ -386,7 +386,10 @@ body > #app{ min-height:100vh; padding:44px 28px; }
 [data-role="verify-body"] .verdict-n{
   font-family:var(--cp-mono); font-size:20px; font-weight:600; line-height:1; color:var(--cp-ink);
 }
-[data-role="verify-body"] .verdict-n.verdict-wire{ color:var(--cp-accent); }
+[data-role="verify-body"] .verdict-claim-stat{ justify-content:center; }
+[data-role="verify-body"] .verdict-claim{
+  font-family:var(--cp-sans); font-size:13.5px; font-weight:500; line-height:1.3; color:var(--cp-ink2);
+}
 [data-role="verify-body"] .verdict-lab{
   font-family:var(--cp-mono); font-size:10.5px; letter-spacing:.02em; color:var(--cp-ink2);
 }
@@ -425,6 +428,7 @@ body > #app{ min-height:100vh; padding:44px 28px; }
 }
 [data-role="verify-body"] .ctx-who{ color:var(--cp-ink2); }
 [data-role="verify-body"] .ctx-who::after{ content:"\00b7"; margin:0 6px; color:var(--cp-ink2); opacity:.6; }
+[data-role="verify-body"] .ctx-note{ margin-top:8px; font-size:11.5px; line-height:1.5; color:var(--cp-ink2); }
 
 /* inline placeholder token chip, shared by ledger and working context */
 [data-role="verify-body"] .tok{
