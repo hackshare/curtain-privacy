@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 import pathlib
 import random
-from augment.names import swap_names
+from augment.names import swap_names, swap_cjk_names
 from augment.messy import messify
 from augment.govid import synth_govid_rows
 from augment.negatives import synth_negative_rows
+from augment.narratives import synth_narrative_rows
 from augment.verify import verify_row
-from augment.rows import assert_spans_exact, AUG_UID_BASE
+from augment.rows import assert_spans_exact, AUG_UID_BASE, PERSON_LABELS
 
 _SEED_FILE = pathlib.Path(__file__).with_name("realism_seed.jsonl")
 
@@ -21,7 +22,8 @@ def _load_seed() -> list[dict]:
 
 
 def build_augmentation(base_rows: list[dict], seed: int, name_frac: float,
-                       messy_frac: float, n_govid: int, n_neg: int = 0) -> list[dict]:
+                       messy_frac: float, n_govid: int, n_neg: int = 0,
+                       n_narrative: int = 0, n_cjk: int = 0) -> list[dict]:
     rng = random.Random(seed)
     out: list[dict] = []
     for i, row in enumerate(base_rows):
@@ -34,8 +36,18 @@ def build_augmentation(base_rows: list[dict], seed: int, name_frac: float,
         r = {**r, "uid": AUG_UID_BASE + i}
         assert_spans_exact(r)
         out.append(r)
+    # CJK exposure ON TOP: extra rows whose names are swapped to romanized-CJK/short,
+    # cycling base rows that carry a person name (varied per row via the j-shifted
+    # seed). Added, not displacing the Faker pass, so diverse-Latin coverage stays full.
+    named = [row for row in base_rows if any(s["label"] in PERSON_LABELS for s in row["privacy_mask"])]
+    for j in range(n_cjk if named else 0):
+        r = swap_cjk_names(named[j % len(named)], seed + 1 + j)
+        r = {**r, "uid": AUG_UID_BASE + 1_100_000 + j}
+        assert_spans_exact(r)
+        out.append(r)
     out.extend(synth_govid_rows(seed, n_govid))
     out.extend(synth_negative_rows(seed, n_neg))
+    out.extend(synth_narrative_rows(seed, n_narrative))
     out.extend(_load_seed())
     return out
 
@@ -50,8 +62,10 @@ if __name__ == "__main__":
     ap.add_argument("--messy-frac", type=float, default=0.4)
     ap.add_argument("--n-govid", type=int, default=4000)
     ap.add_argument("--n-neg", type=int, default=0)
+    ap.add_argument("--n-narrative", type=int, default=0)
+    ap.add_argument("--n-cjk", type=int, default=0)
     a = ap.parse_args()
     base = [json.loads(l) for l in pathlib.Path(a.base).read_text().splitlines() if l.strip()]
-    rows = build_augmentation(base, a.seed, a.name_frac, a.messy_frac, a.n_govid, a.n_neg)
+    rows = build_augmentation(base, a.seed, a.name_frac, a.messy_frac, a.n_govid, a.n_neg, a.n_narrative, a.n_cjk)
     pathlib.Path(a.out).write_text("\n".join(json.dumps(r) for r in rows) + "\n")
     print(f"wrote {len(rows)} augmentation rows -> {a.out}")

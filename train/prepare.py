@@ -70,10 +70,10 @@ def align_labels(
     return label_ids
 
 
-def _process_file(in_path: Path, out_path: Path) -> None:
+def _process_file(in_path: Path, out_path: Path, tokenizer_name: str = _BASE_MODEL) -> None:
     from transformers import AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(_BASE_MODEL)
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 
     input_ids_list: list[list[int]] = []
     attention_mask_list: list[list[int]] = []
@@ -115,12 +115,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Tokenize folded JSONL into BIO dataset.")
     parser.add_argument("--in", dest="input", required=True, help="Input JSONL file")
     parser.add_argument("--out", required=True, help="Output datasets directory")
+    parser.add_argument("--tokenizer", default=_BASE_MODEL, help="Tokenizer to align against")
     args = parser.parse_args()
 
     in_path = Path(args.input)
     out_path = Path(args.out)
     out_path.mkdir(parents=True, exist_ok=True)
-    _process_file(in_path, out_path)
+    _process_file(in_path, out_path, args.tokenizer)
 
 
 if __name__ == "__main__":

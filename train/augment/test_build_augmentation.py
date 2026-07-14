@@ -22,3 +22,23 @@ def test_deterministic():
     a = build_augmentation(BASE, seed=3, name_frac=1.0, messy_frac=1.0, n_govid=5)
     b = build_augmentation(BASE, seed=3, name_frac=1.0, messy_frac=1.0, n_govid=5)
     assert [r["source_text"] for r in a] == [r["source_text"] for r in b]
+
+def test_narratives_included_when_requested():
+    out = build_augmentation(BASE, seed=1, name_frac=1.0, messy_frac=0.5, n_govid=0, n_narrative=12)
+    # a narrative row repeats a given name; base rows do not
+    narr = [r for r in out
+            if sum(1 for s in r["privacy_mask"] if s["label"] == "GIVENNAME") >= 3]
+    assert len(narr) >= 12
+    for r in out:
+        assert_spans_exact(r)
+
+def test_cjk_rows_added_on_top_with_only_curated_names():
+    from augment.names import _CURATED_GIVEN, _CURATED_SURNAME
+    out = build_augmentation(BASE, seed=1, name_frac=1.0, messy_frac=0.0, n_govid=0, n_cjk=20)
+    cjk = [r for r in out if AUG_UID_BASE + 1_100_000 <= r["uid"] < AUG_UID_BASE + 2_000_000]
+    assert len(cjk) == 20                                  # added on top, not displacing
+    curated = set(_CURATED_GIVEN) | set(_CURATED_SURNAME)
+    for r in cjk:
+        assert_spans_exact(r)
+        names = {s["value"] for s in r["privacy_mask"] if s["label"] in ("GIVENNAME", "SURNAME")}
+        assert names and names <= curated, f"non-curated name in cjk row: {names}"

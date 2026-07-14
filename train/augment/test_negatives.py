@@ -16,18 +16,19 @@ def test_negatives_are_label_safe_with_only_name_redacted():
         assert r["uid"] >= AUG_UID_BASE
 
 
-def test_negatives_contain_a_code_left_untagged():
-    # The order/reference code must appear in the text but NOT be a redact span,
-    # so the model learns it is O.
-    rows = synth_negative_rows(seed=5, n=40)
+def test_codes_when_present_are_left_untagged():
+    # A reference code, when a row carries one, must be O (never a redact span).
+    # Not every template has a code now: the geo keep-templates do not.
+    import re
+    rows = synth_negative_rows(seed=5, n=120)
+    code_rows = 0
     for r in rows:
         text = r["source_text"]
         spans = [(s["start"], s["end"]) for s in r["privacy_mask"]]
-        # There is a hyphenated code (LETTERS-DIGITS) somewhere, and no span covers it.
-        import re
-        m = re.search(r"[A-Z]{2,4}-\d{4,6}", text)
-        assert m is not None, f"no code in: {text}"
-        assert not any(a <= m.start() < b for a, b in spans), "code was tagged as redact"
+        for m in re.finditer(r"[A-Z]{2,4}-\d{4,6}", text):
+            code_rows += 1
+            assert not any(a <= m.start() < b for a, b in spans), f"code tagged redact in: {text}"
+    assert code_rows >= 30  # codes still appear across many rows
 
 
 def test_deterministic_and_varied():
@@ -35,3 +36,15 @@ def test_deterministic_and_varied():
     b = synth_negative_rows(seed=5, n=20)
     assert [r["source_text"] for r in a] == [r["source_text"] for r in b]
     assert len({r["source_text"] for r in a}) >= 10
+
+
+def test_full_state_names_and_months_appear_only_as_keep_text():
+    from augment.negatives import _STATE_NAMES, _MONTHS
+    rows = synth_negative_rows(seed=7, n=300)
+    texts = " ".join(r["source_text"] for r in rows)
+    assert any(sn in texts for sn in _STATE_NAMES)   # full state names now shown
+    assert any(m in texts for m in _MONTHS)          # months now shown
+    for r in rows:                                   # and never redacted
+        redacted = {r["source_text"][s["start"]:s["end"]] for s in r["privacy_mask"]}
+        assert not (redacted & set(_STATE_NAMES)), "a full state name was tagged redact"
+        assert not (redacted & set(_MONTHS)), "a month was tagged redact"

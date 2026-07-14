@@ -96,6 +96,8 @@ def main() -> None:
         action="store_true",
         help="Resume from the latest checkpoint in --out (for chunked runs under a bounded host).",
     )
+    parser.add_argument("--base", default=_BASE_MODEL, help="Base checkpoint to fine-tune")
+    parser.add_argument("--tokenizer", default=None, help="Tokenizer id (defaults to --base)")
     args = parser.parse_args()
 
     if args.smoke:
@@ -132,9 +134,9 @@ def main() -> None:
     )
 
     # ── model + tokenizer ───────────────────────────────────────────────────
-    tokenizer = AutoTokenizer.from_pretrained(_BASE_MODEL)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer or args.base)
     model = AutoModelForTokenClassification.from_pretrained(
-        _BASE_MODEL,
+        args.base,
         num_labels=len(LABEL2ID),
         id2label=ID2LABEL,
         label2id=LABEL2ID,
