@@ -381,11 +381,14 @@ async function detectNerWindow(
   const entities = await classifier(inferText, { aggregation_strategy: "simple" });
   // `inferText` and `raw` are the same length (hyphen→space is 1:1), so offsets
   // recovered against this folded projection address `raw` too.
-  const folded = foldForModel(inferText);
-  const indexOffsets =
-    classifier.tokenize === undefined ? undefined : buildTokenIndexOffsets(folded, classifier.tokenize(inferText));
+  const tokens = classifier.tokenize?.(inferText);
+  // SentencePiece (XLM-R) marks word starts with U+2581 (▁); WordPiece marks
+  // continuations with ##. Detect from the tokens so offset recovery matches.
+  const spm = tokens !== undefined && tokens.some((t) => t.startsWith("▁"));
+  const folded = foldForModel(inferText, spm);
+  const indexOffsets = tokens === undefined ? undefined : buildTokenIndexOffsets(folded, tokens, spm);
   const candidates: Span[] = [];
-  for (const entity of mergeBioTokens(entities, folded, indexOffsets)) {
+  for (const entity of mergeBioTokens(entities, folded, indexOffsets, spm)) {
     const label = GROUP_TO_LABEL[entity.group.toUpperCase()];
     if (label === undefined) continue;
     if (entity.score < EXTEND_SCORE || entity.end <= entity.start) continue;
@@ -433,13 +436,17 @@ export interface FoldedProjection {
  * folded text and then projected back to exact raw offsets. Iterates by code
  * point so surrogate pairs map back to whole-character raw spans.
  */
-export function foldForModel(raw: string): FoldedProjection {
+export function foldForModel(raw: string, spm = false): FoldedProjection {
   let text = "";
   const rawStart: number[] = [];
   const rawEnd: number[] = [];
   let i = 0;
   for (const codePoint of raw) {
-    const folded = codePoint.toLowerCase().normalize("NFKD").replace(COMBINING_MARKS_RE, "");
+    // WordPiece/BERT-uncased folds to lowercase + NFKD + combining-mark strip.
+    // SentencePiece/XLM-R is cased and NFKC-normalized, so match that instead.
+    const folded = spm
+      ? codePoint.normalize("NFKC")
+      : codePoint.toLowerCase().normalize("NFKD").replace(COMBINING_MARKS_RE, "");
     for (const ch of folded) {
       text += ch;
       rawStart.push(i);
@@ -462,12 +469,18 @@ export function foldForModel(raw: string): FoldedProjection {
 function buildTokenIndexOffsets(
   folded: FoldedProjection,
   contentTokens: readonly string[],
+  spm = false,
 ): ReadonlyArray<readonly [number, number]> {
+  const marker = spm ? "▁" : "##";
   const offsets: [number, number][] = [[0, 0]];
   let cursor = 0;
   for (const token of contentTokens) {
-    const piece = token.startsWith("##") ? token.slice(2) : token;
-    const at = token.startsWith("##") ? cursor : folded.text.indexOf(piece, cursor);
+    const hasMarker = token.startsWith(marker);
+    const piece = hasMarker ? token.slice(marker.length) : token;
+    // WordPiece `##` marks a continuation (advance from the cursor); SentencePiece
+    // `▁` marks a word start, so there an UNmarked token is the continuation.
+    const isContinuation = spm ? !hasMarker : hasMarker;
+    const at = isContinuation ? cursor : folded.text.indexOf(piece, cursor);
     if (piece.length === 0 || at < 0 || at + piece.length > folded.text.length) {
       offsets.push([0, 0]);
       continue;
@@ -501,6 +514,7 @@ function mergeBioTokens(
   entities: RawEntity[],
   folded: FoldedProjection,
   indexOffsets?: ReadonlyArray<readonly [number, number]>,
+  spm = false,
 ): AggregatedEntity[] {
   const out: AggregatedEntity[] = [];
   let cursor = 0;
@@ -530,7 +544,8 @@ function mergeBioTokens(
     if (indexed !== null) {
       [start, end] = indexed;
     } else {
-      const word = (entity.word ?? "").replace(/^##/, "").toLowerCase();
+      const w = entity.word ?? "";
+      const word = spm ? w.replace(/^▁/, "") : w.replace(/^##/, "").toLowerCase();
       if (!word) continue;
       const at = folded.text.indexOf(word, cursor);
       if (at < 0) continue;
@@ -544,7 +559,8 @@ function mergeBioTokens(
     // when the model mislabels it `B-` (common on accented words: "Ångström" is
     // emitted as `ang`(B-SURNAME) + `##strom`(B-SURNAME)). Treating that `B-` as
     // a new span fractures one name into pieces that then drift through repair.
-    const isSubword = (entity.word ?? "").startsWith("##");
+    const rawWord = entity.word ?? "";
+    const isSubword = spm ? rawWord.length > 0 && !rawWord.startsWith("▁") : rawWord.startsWith("##");
     const continues = current !== null && current.group === base && (prefix !== "B" || isSubword);
     if (continues && current !== null) {
       current.end = end;
