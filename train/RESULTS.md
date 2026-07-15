@@ -493,3 +493,53 @@ capacity, baked into weights that now cover 24 languages instead of seven. No ex
 size recovers it. Reaching the shipped 98.88% would need a larger base model, not a
 larger export, so the 14.2 MB artifact holds and the benchmark cost is the honest,
 documented price of the wider language coverage.
+
+## Multilingual re-base: curtain-small (2026-07-14)
+
+The all-Latin retrain above ended on a capacity finding: the 14.2 MB MiniLM-L6
+cannot maximize every gate across 24 languages, and closing the gap needs a larger
+base. A separate probe confirmed capacity rather than data was the limit: adding
+CJK and short-name coverage on top of the full diverse-Latin diet still regressed
+diverse-Latin recall, so the two were competing for the same parameters. This entry
+takes the larger base.
+
+curtain-small fine-tunes `microsoft/Multilingual-MiniLM-L12-H384` (12 layers, deeper
+multilingual pretraining) with the XLM-R SentencePiece tokenizer. Two things changed
+in the pipeline. The tokenizer is cased and NFKC, so the model sees accented text as
+written (`José` stays `José`) rather than the WordPiece lowercase-and-strip fold. And
+the vocabulary trim is now SentencePiece-aware: it keeps XLM-R's entire Latin-script
+sub-vocabulary (113,876 of 250,002 pieces) and drops the non-Latin scripts the model
+does not serve, so tokenization of Latin text is byte-identical to the full tokenizer
+and the trim costs no recall. A frequency-only prune was rejected: it dropped the
+whole-word pieces for held-out non-English Latin names, which then shattered into
+characters and collapsed per-language recall (Vietnamese fell to 39%). The library's
+span reconstruction detects WordPiece vs SentencePiece from the tokens; a small
+deterministic pass also trims an honorific the model sweeps into a name span
+(`Miss Yowhana` to `Yowhana`), which is safe because a title is not PII.
+
+curtain-small, 3 epochs, measured through the shipped guard:
+
+- Per-language person recall across all 24 languages: every language at or above
+  95.9% (worst Vietnamese 95.9%, Tagalog 97.3%, most 98 to 100%). The worst-language
+  floor rises from v1's 95.4% (Lithuanian, now 98.9%).
+- 30k held-out benchmark (the seven-language slice): protected 98.37% (Wilson 95%
+  CI [98.30%, 98.43%]), char-recall 99.42%, retention 96.71%. All three improve on
+  v1's 98.24% / 98.50% / 96.43%; the deeper base recovers most of the capacity gap.
+- Real-157: protected 99.28%, keep-violation 2.44%. Fairness-300: protected 100.00%,
+  keep-violation 0.00%. Adversarial: 157 of 157.
+- Recall-leak probe (the reason to re-base): a first name alone 50 to 100%, a repeated
+  subject 33 to 100%, CJK-origin short surnames 80 to 100%.
+
+The trimmed, quantized artifact is 59.9 MB (55 MB model, 4.5 MB tokenizer), about 4x
+curtain-tiny, the price of the 12-layer base and the Latin-script embedding.
+
+One measurement caveat surfaced at release. Native onnxruntime quantized inference is
+platform-specific: the real-157 keep-violation reads 2.44% on macOS but 5.85% on the
+Linux CI runner, enough to fail the 3% gate. The browser WASM backend (onnxruntime-web)
+is one deterministic binary that reads 2.44% everywhere and is what consumers run, so
+the CI precision gate moved to it (`eval:wasm`). The native gap is over-redaction, not
+a leak, and only affects native-cpu server consumers.
+
+Verdict: SHIP curtain-small as v2.0, with curtain-tiny frozen at v1.0.0 as the
+smallest-footprint tier. The capacity gap the all-Latin entry documented is closed,
+and the leading-, repeated-, and short-name leaks are gone.

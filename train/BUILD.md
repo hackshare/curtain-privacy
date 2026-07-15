@@ -6,7 +6,9 @@ path. It is not fetched from a host. This runbook has two paths:
 - **Quickstart** produces a working model (about 52 MB) with the shortest chain.
   Use it to confirm the pipeline runs end to end and to get a model you can load.
 - **Ship** adds augmentation, a vocabulary trim, and embedding quantization to
-  produce the 14.2 MB artifact that passes the evaluation gates.
+  produce a gate-passing artifact. It builds curtain-small (the ~60 MB flagship,
+  on Multilingual-MiniLM-L12 with a SentencePiece tokenizer); a note at the end
+  builds curtain-tiny (the 14.2 MB smaller tier, on MiniLM-L6 with WordPiece).
 
 Both paths share the setup below. Every step lists its command, what to expect,
 and a rough time so a wrong step surfaces early.
@@ -86,75 +88,101 @@ This is a working model. It is larger than the shipped one because it keeps the
 full vocabulary and an fp32 embedding table. To shrink it to the shipped size,
 follow Part B. To load it now, jump to "Verify and load".
 
-## Part B: Ship model (14.2 MB, gate-passing)
+## Part B: Ship model (curtain-small, ~60 MB, gate-passing)
 
 The ship model adds augmentation, a vocabulary trim, and embedding quantization.
-Start from the same fetched slice as Part A step 1 (`data/trainsplit-raw.jsonl`).
+curtain-small fine-tunes the 12-layer `Multilingual-MiniLM-L12-H384` with the
+XLM-R SentencePiece tokenizer. Start from the same fetched slice as Part A step 1
+(`data/trainsplit-raw.jsonl`).
 
-**1. Generate the augmentation set** (diverse names, messy formatting,
-synthesized government IDs, and keep-class negatives):
+**1. Generate the augmentation set** (diverse Latin names, romanized-CJK and short
+names added on top, leading-subject narratives, messy formatting, synthesized
+government IDs, and keep-class negatives):
 
 ```sh
 cd train
 uv run python -m augment.build_augmentation \
   --base data/trainsplit-raw.jsonl --out data/aug.jsonl \
-  --seed 1 --name-frac 0.6 --messy-frac 0.4 --n-govid 4000 --n-neg 8000
+  --seed 1 --name-frac 0.6 --messy-frac 0.4 \
+  --n-govid 4000 --n-neg 18000 --n-narrative 10000 --n-cjk 40000
 ```
-Expected: `wrote <about 154000> augmentation rows -> data/aug.jsonl`. Time: a few minutes.
+Expected: `wrote <about 222000> augmentation rows -> data/aug.jsonl`. Time: a few minutes.
 
 **2. Combine** the base rows and the augmentation into one training set. The
 augmentation file is in the same raw schema as the fetch, so a concatenation is
 all that is needed:
 
 ```sh
-cat data/trainsplit-raw.jsonl data/aug.jsonl > data/sp2c-raw.jsonl
-wc -l data/sp2c-raw.jsonl   # about 304000
+cat data/trainsplit-raw.jsonl data/aug.jsonl > data/small-raw.jsonl
+wc -l data/small-raw.jsonl   # about 372000
 ```
 
-**3. Build and tokenize** the combined set:
+**3. Build and tokenize** the combined set. Tokenize against the XLM-R
+SentencePiece vocabulary (the multilingual base's tokenizer), not the default
+WordPiece one:
 
 ```sh
 cd ..
-bun train/build-dataset.ts --in train/data/sp2c-raw.jsonl --out train/data/sp2c.jsonl
+bun train/build-dataset.ts --in train/data/small-raw.jsonl --out train/data/small.jsonl
 cd train
-uv run python prepare.py --in data/sp2c.jsonl --out runs/tok-sp2c
+uv run python prepare.py --in data/small.jsonl --out runs/tok-small --tokenizer xlm-roberta-base
 ```
 
-**4. Train** for 3 epochs (larger dataset, so longer than Part A):
+**4. Train** for 3 epochs on the multilingual base. `--no-eval` saves a step
+checkpoint every 5,000 steps so an idle-sleep cannot lose the run; `caffeinate`
+keeps the Mac awake:
 
 ```sh
-uv run python train.py --data runs/tok-sp2c --out runs/ckpt-sp2c --epochs 3
+caffeinate -dis uv run python train.py --data runs/tok-small --out runs/ckpt-small \
+  --epochs 3 --no-eval --base microsoft/Multilingual-MiniLM-L12-H384 --tokenizer xlm-roberta-base
 ```
-Expected: the final model in `runs/ckpt-sp2c/`. Time: a few hours on MPS.
+Expected: checkpoints in `runs/ckpt-small/`, the last being `checkpoint-<final>`.
+Time: a few hours on MPS.
 
-**5. Vocabulary-trim** the trained model to 19,730 pieces. Trim keeps every
-special token and single-character piece, so every input still tokenizes; it
-drops only rare multi-character pieces. In the recorded run, trim nudged
-retention slightly up, so it is not a recall regression. The corpus argument is
-the built dataset from step 3 (it carries the `text` field trim reads):
+**5. Vocabulary-trim** the trained model with the SentencePiece trimmer. It keeps
+XLM-R's entire Latin-script sub-vocabulary and drops the non-Latin scripts the
+model does not serve, so tokenization of Latin text stays byte-identical to the
+full tokenizer and the trim costs no recall. The corpus argument is the built
+dataset from step 3:
 
 ```sh
-uv run python trim.py --model runs/ckpt-sp2c --corpus data/sp2c.jsonl --out runs/model-trim --target 19730
+uv run python trim_spm.py --model runs/ckpt-small/checkpoint-<final> \
+  --corpus data/small.jsonl --out runs/model-small-trim
 ```
-Expected: `trimmed 30522 -> 19730 pieces -> runs/model-trim`. Time: under a minute.
+Expected: `trimmed 250037 -> 113876 pieces -> runs/model-small-trim`. Time: about a minute.
 
 **6. Export with embedding quantization.** The `--quantize-embedding` flag
-INT8-quantizes the word-embedding table. It is required to hit the size budget on
-a trimmed model; without it the export stays around 52 MB. Export reads the
-trimmed directory from step 5, not the original checkpoint:
+INT8-quantizes the word-embedding table. Export reads the trimmed directory from
+step 5, not the original checkpoint:
 
 ```sh
-uv run python export.py --ckpt runs/model-trim --out runs/model-ship --quantize-embedding
+uv run python export.py --ckpt runs/model-small-trim --out runs/model-small --quantize-embedding
 ```
-Expected: `runs/model-ship/` with `onnx/model_q4.onnx`, about 14.2 MB total. Time: about 5 to 10 minutes.
+Expected: `runs/model-small/` with `onnx/model_q4.onnx` (about 55 MB) and
+`tokenizer.json` (about 4.5 MB), about 60 MB total. Time: about 5 to 10 minutes.
+
+### curtain-tiny (the 14.2 MB smaller tier)
+
+curtain-tiny is the earlier, smaller model on the 6-layer `MiniLM-L6-H384-uncased`
+(WordPiece), frozen at `v1.0.0`. The pipeline defaults target that base and
+tokenizer, so building a model of its shape from the same augmented data is the
+default path plus the WordPiece trim:
+
+```sh
+uv run python prepare.py --in data/small.jsonl --out runs/tok-tiny
+uv run python train.py --data runs/tok-tiny --out runs/ckpt-tiny --epochs 3
+uv run python trim.py --model runs/ckpt-tiny --corpus data/small.jsonl --out runs/model-tiny-trim --target 19730
+uv run python export.py --ckpt runs/model-tiny-trim --out runs/model-tiny --quantize-embedding
+```
+Expected: `runs/model-tiny/onnx/model_q4.onnx`, about 14.2 MB total.
 
 ## Verify and load
 
 **Functional smoke.** Load the built model and redact a sample. From the repo
-root (point `model` at `runs/model-quickstart` or `runs/model-ship`):
+root (point `model` at `runs/model-quickstart` or `runs/model-small`):
 
 ```sh
-bun -e 'import {createGuard} from "./index.ts"; const g = await createGuard({ model: "train/runs/model-ship", device: "cpu" }); console.log((await g.protect("My SSN is 472-81-0094")).text);'
+bun -e 'import {createGuard} from "./index.ts"; const g = await createGuard({ model: "train/runs/model-small", device: "cpu" }); console.log((await g.protect("My SSN is 472-81-0094")).text);'
 ```
 Expected: the SSN is replaced with a salted placeholder, for example
 `My SSN is [SSN_1.<hex>]`. If you see the raw digits, the model did not load or
@@ -167,16 +195,19 @@ build you produced yourself; it is not a cross-machine reproduction check. The
 functional smoke and the optional gates below are the real validation.
 
 **Optional: reproduce the evaluation gates.** With `CURTAIN_MODEL` set to your
-built model directory, the existing harnesses score it:
+built model directory, the harnesses score it. The precision gates run through
+onnxruntime-web (`eval:wasm`), the deterministic browser backend consumers use;
+native onnxruntime over-redaction is platform-specific:
 
 ```sh
-CURTAIN_MODEL=train/runs/model-ship bun run eval:real:check
-CURTAIN_MODEL=train/runs/model-ship bun run eval:adversarial
-bun run bench --model train/runs/model-ship --data eval/bench/data/heldout.jsonl --out train/runs/bench-ship
+CURTAIN_MODEL=train/runs/model-small bun run eval:wasm
+CURTAIN_MODEL=train/runs/model-small bun run eval:adversarial
+bun run bench --model train/runs/model-small --data eval/bench/data/heldout.jsonl --out train/runs/bench-small
 ```
-Reference numbers for the ship model: bench 98.9% protected at 96.6% retention,
-real-world 100% protected, held-out fairness 99.3% protected. A rebuild should
-land within the confidence interval of these, not exactly on them.
+Reference numbers for curtain-small: bench 99.4% char-recall at 96.7% retention
+(98.4% protected), real-world 99.3% protected at 2.4% keep-violation, held-out
+fairness 100% protected. A rebuild should land within the confidence interval of
+these, not exactly on them.
 
 **How the library loads it.** `createGuard({ model: "<exported dir>" })` takes the
 exported model directory (the one containing `onnx/` and the tokenizer files). In
@@ -191,28 +222,30 @@ This section documents how to publish the ship model to Hugging Face as a versio
 **Prerequisites.** The `HF_TOKEN` secret must be set in GitHub Actions
 (Settings > Secrets and variables > Actions) before the publish step will succeed.
 
-**1. Build the ship model** (Part B above), producing `runs/model-latin24c-ship`.
+**1. Build the ship model** (Part B above), producing `runs/model-small`.
 
 **2. Tag and create the GitHub release.**
 
 ```sh
 cd train
-uv run python cut_release.py --model runs/model-latin24c-ship --version 1.0.0
+uv run python cut_release.py --model runs/model-small --version 2.0.0
 ```
 
-This script creates the timestamped tag `v1.0.0-<ts>` and publishes a live
+This script creates the timestamped tag `v2.0.0-<ts>` and publishes a live
 prerelease immediately. No draft state is used. The `release: published` event
 fires as soon as the script finishes, which triggers
 `.github/workflows/release-publish.yml` automatically. That workflow:
 
 1. Downloads the release asset and verifies the model SHA-256 recorded in the
    release notes matches the artifact.
-2. Re-runs the real-157, adversarial, and fairness evaluation gates.
+2. Re-runs the real-157 and fairness gates through onnxruntime-web (`eval:wasm`,
+   the deterministic browser backend) plus the native adversarial gate.
 3. Pauses for manual approval in the `hf-release` environment. You will receive
    a notification and must approve the deployment in GitHub Actions before
    publishing proceeds.
 4. On approval, publishes the artifact to `hackshare/curtain-privacy` on Hugging
-   Face at the timestamped tag `v1.0.0-<ts>` and advances the moving pointer `v1.0.0`.
+   Face at the timestamped tag `v2.0.0-<ts>` and advances the moving pointer `v2.0.0`.
 
-The moving `v1.0.0` pointer always points to the most recently published build.
-Callers who need an immutable pin should use `v1.0.0-<ts>` instead.
+The moving `v2.0.0` pointer always points to the most recently published
+curtain-small build, and `v1.0.0` stays pinned to curtain-tiny. Callers who need
+an immutable pin should use the timestamped `v2.0.0-<ts>` (or `v1.0.0-<ts>`) tag.

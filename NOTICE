@@ -10,9 +10,16 @@ Rampart (National Design Studio): CC BY 4.0
   https://creativecommons.org/licenses/by/4.0/
   Attribution: (c) 2026 National Design Studio.
 
-MiniLM base checkpoint: MIT
-  The curtain model is fine-tuned from nreimers/MiniLM-L6-H384-uncased.
+MiniLM base checkpoints: MIT
+  curtain-small is fine-tuned from microsoft/Multilingual-MiniLM-L12-H384.
+  curtain-tiny is fine-tuned from nreimers/MiniLM-L6-H384-uncased.
+  https://huggingface.co/microsoft/Multilingual-MiniLM-L12-H384
   https://huggingface.co/nreimers/MiniLM-L6-H384-uncased
+
+XLM-RoBERTa tokenizer: MIT
+  curtain-small uses the SentencePiece tokenizer from xlm-roberta-base,
+  trimmed to its Latin-script sub-vocabulary.
+  https://huggingface.co/xlm-roberta-base
 
 OpenPII training data, ai4privacy: CC BY 4.0
   The curtain model is trained on ai4privacy/pii-masking-openpii-1.5m and on
