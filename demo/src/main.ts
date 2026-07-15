@@ -1,10 +1,30 @@
 import { buildUi } from "./ui.ts";
-import { loadGuard, makeReplySource } from "./models.ts";
+import { loadGuard, makeReplySource, resolveRevisions, REDACTION_MODELS, DEFAULT_REVISION } from "./models.ts";
 import { hasWebGpu } from "./capability.ts";
-import { runTurn } from "./pipeline.ts";
+import { runTurn, type TurnGuard } from "./pipeline.ts";
 import { ConversationMemory } from "./memory.ts";
 
 const READY = "Ready. Everything runs in your browser; nothing you type leaves the device.";
+
+const modelName = (rev: string) => REDACTION_MODELS.find((m) => m.revision === rev)?.name ?? "the redaction model";
+
+// tag -> immutable commit SHA, populated at startup so the model loads from a
+// SHA-pinned URL and the browser cache stays correct when a tag is re-pointed.
+let resolved = new Map<string, string>();
+const immutableRev = (tag: string) => resolved.get(tag) ?? tag;
+
+// Guards are cached by resolved revision: the first switch to a model downloads it
+// and every switch after that flips instantly. A re-pointed tag resolves to a new
+// SHA on the next page load, so the cache never serves a stale model.
+const guards = new Map<string, TurnGuard>();
+async function getGuard(tag: string): Promise<TurnGuard> {
+  const rev = immutableRev(tag);
+  const cached = guards.get(rev);
+  if (cached) return cached;
+  const g = await loadGuard(rev);
+  guards.set(rev, g);
+  return g;
+}
 
 const ui = buildUi(document.querySelector("#app") as HTMLElement);
 const memory = new ConversationMemory();
@@ -13,10 +33,12 @@ ui.setMode(hasWebGpu() ? "on-device LLM" : "scripted reply");
 ui.setBusy(true);
 
 try {
-  ui.setStatus("Loading the redaction model...");
-  const guard = await loadGuard();
-  ui.setStatus(hasWebGpu() ? "Loading the on-device LLM..." : "Ready.");
-  const { reply, kind } = await makeReplySource((p) => ui.setStatus(`Loading the on-device LLM... ${describe(p)}`));
+  ui.setModel(DEFAULT_REVISION);
+  ui.setStatus(`Loading ${modelName(DEFAULT_REVISION)}...`);
+  resolved = await resolveRevisions();
+  let guard = await getGuard(DEFAULT_REVISION);
+  ui.setStatus(hasWebGpu() ? "Loading the on-device LLM (downloads once, then cached)..." : "Ready.");
+  const { reply, kind } = await makeReplySource((p) => ui.setStatus(`Loading the on-device LLM (downloads once, then cached)... ${describe(p)}`));
   ui.setMode(kind === "llm" ? "on-device LLM" : "scripted reply");
   ui.setStatus(READY);
   ui.setBusy(false);
@@ -47,6 +69,27 @@ try {
     guard.reset();
     ui.resetChat();
     ui.setStatus(READY);
+  });
+
+  // Switching the redaction model loads the chosen one (cached after the first
+  // time) and starts a clean conversation, since placeholders are per-guard.
+  ui.onModelChange(async (revision) => {
+    ui.setError(false);
+    ui.setBusy(true);
+    ui.setStatus(guards.has(revision) ? `Switching to ${modelName(revision)}...` : `Downloading ${modelName(revision)}...`);
+    try {
+      guard = await getGuard(revision);
+      guard.reset();
+      memory.clear();
+      ui.resetChat();
+      ui.setModel(revision);
+      ui.setStatus(READY);
+    } catch (e) {
+      ui.setStatus(`Could not switch model: ${errText(e)}`);
+      ui.setError(true);
+    } finally {
+      ui.setBusy(false);
+    }
   });
 } catch (e) {
   console.error("demo load failed", e);

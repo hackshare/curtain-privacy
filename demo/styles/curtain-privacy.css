@@ -133,6 +133,39 @@ body > #app{ min-height:100vh; padding:44px 28px; }
 [data-role="new-chat"]:hover:not(:disabled){ color:var(--cp-ink); }
 [data-role="new-chat"]:disabled{ opacity:.4; cursor:default; }
 
+/* ---------------- redaction model picker ---------------- */
+/* A quiet tier control for which redaction model the phone loads. The active model
+   wears the brackets, tying it to the [curtain] wordmark and the placeholder tokens,
+   so the accent reads as the same signature rather than a new piece of decoration. */
+[data-role="model-pick"]{
+  display:flex; flex-direction:column; gap:7px;
+  margin-top:14px; padding:0 20px;
+}
+.mp-label{
+  font-family:var(--cp-mono); font-size:9px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--cp-ink2);
+}
+.mp-opts{ display:flex; gap:7px; }
+[data-role="model-pick"] button{
+  flex:1; min-width:0; cursor:pointer; text-align:left;
+  display:flex; flex-direction:column; gap:2px;
+  padding:6px 10px;
+  border:1px solid var(--cp-line); border-radius:9px;
+  background:transparent;
+}
+.mp-name{ font-family:var(--cp-mono); font-size:11.5px; letter-spacing:.01em; color:var(--cp-ink); }
+.mp-note{
+  font-family:var(--cp-mono); font-size:9px; letter-spacing:.02em; color:var(--cp-ink2);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+[data-role="model-pick"] button:not([data-active]):not(:disabled):hover{ border-color:var(--cp-ink2); }
+[data-role="model-pick"] button[data-active]{ border-color:transparent; background:var(--cp-accent-tint); }
+[data-role="model-pick"] button[data-active] .mp-name{ color:var(--cp-accent); }
+[data-role="model-pick"] button[data-active] .mp-name::before{ content:"["; opacity:.55; }
+[data-role="model-pick"] button[data-active] .mp-name::after{ content:"]"; opacity:.55; }
+[data-role="model-pick"] button:disabled{ opacity:.5; cursor:default; }
+[data-role="model-pick"] button:focus-visible{ outline:2px solid var(--cp-accent); outline-offset:2px; }
+
 /* ---------------- status ---------------- */
 [data-role="status"]{
   min-height:34px; box-sizing:border-box;

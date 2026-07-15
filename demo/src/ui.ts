@@ -1,4 +1,5 @@
 import type { Phase, PhaseContext, Turn } from "./pipeline.ts";
+import { REDACTION_MODELS } from "./models.ts";
 
 export interface DemoUi {
   root: HTMLElement;
@@ -20,6 +21,10 @@ export interface DemoUi {
   onNewConversation(handler: () => void): void;
   /** Clear the chat transcript and the evidence panel for a fresh conversation. */
   resetChat(): void;
+  /** Register the handler for switching the redaction model, by revision tag. */
+  onModelChange(handler: (revision: string) => void): void;
+  /** Mark which redaction model the picker shows as active. */
+  setModel(revision: string): void;
 }
 
 type StepDef = { id: Phase; label: string; where: "device" | "wire"; receipt: string };
@@ -64,6 +69,10 @@ export function buildUi(root: HTMLElement): DemoUi {
         <div data-role="badge"></div>
         <button data-role="new-chat" type="button"><span aria-hidden="true">&#8635;</span> New conversation</button>
       </div>
+      <div data-role="model-pick" role="radiogroup" aria-label="Redaction model">
+        <span class="mp-label">redaction model</span>
+        <div class="mp-opts">${REDACTION_MODELS.map((m) => `<button type="button" role="radio" aria-checked="false" data-rev="${m.revision}"><span class="mp-name">${m.name}</span><span class="mp-note">${m.size} · ${m.note}</span></button>`).join("")}</div>
+      </div>
       <div data-role="status"></div>
       <ul data-role="messages"></ul>
       <div data-role="examples">
@@ -90,8 +99,17 @@ export function buildUi(root: HTMLElement): DemoUi {
   const button = form.querySelector("button") as HTMLButtonElement;
   const chips = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-role="examples"] button'));
   const newChat = root.querySelector('[data-role="new-chat"]') as HTMLButtonElement;
+  const modelBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-role="model-pick"] button'));
 
   let mode: "on-device LLM" | "scripted reply" = "on-device LLM";
+  let modelChangeHandler: (revision: string) => void = () => {};
+  for (const btn of modelBtns) {
+    btn.addEventListener("click", () => {
+      // Ignore clicks on the active model or while a load is in flight.
+      if (btn.disabled || btn.dataset.active !== undefined) return;
+      modelChangeHandler(btn.dataset.rev!);
+    });
+  }
 
   let sendHandler: (text: string) => void = () => {};
   form.addEventListener("submit", (e) => {
@@ -212,6 +230,7 @@ export function buildUi(root: HTMLElement): DemoUi {
       input.disabled = b;
       newChat.disabled = b;
       for (const chip of chips) chip.disabled = b;
+      for (const mb of modelBtns) mb.disabled = b;
     },
 
     beginTurn: (original) => {
@@ -264,6 +283,14 @@ export function buildUi(root: HTMLElement): DemoUi {
       verify.innerHTML = "";
       delete verify.dataset.turn;
       delete phone.dataset.state;
+    },
+    onModelChange: (h) => { modelChangeHandler = h; },
+    setModel: (revision) => {
+      for (const btn of modelBtns) {
+        const active = btn.dataset.rev === revision;
+        if (active) btn.dataset.active = ""; else delete btn.dataset.active;
+        btn.setAttribute("aria-checked", String(active));
+      }
     },
   };
 }

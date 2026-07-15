@@ -70,7 +70,7 @@
     </div>
     <div class="g-item">
       <h3>Part rules, part model</h3>
-      <p>Emails, phone numbers, and IDs are matched by exact rules and do not slip. Names and addresses come from an on-device model that catches the large majority but can miss unusual phrasing. Either way, the card beside the chat shows the exact text the model received, so you can see what it caught and what it did not.</p>
+      <p>Emails, phone numbers, and IDs are matched by exact rules and do not slip. Names and addresses come from an on-device model, which catches the large majority but can miss unusual phrasing. You choose which model runs, above the chat: curtain-small covers 24 languages and catches the most, curtain-tiny is a smaller, faster download. Either way, the card beside the chat shows the exact text the model received, so you can see what it caught and what it did not.</p>
     </div>
     <div class="g-item">
       <h3>About the phone frame</h3>
@@ -93,7 +93,7 @@
 
 const guard = await createGuard({
   model: "hackshare/curtain-privacy",
-  revision: "v1.0.0",
+  revision: "v2.0.0", // curtain-small; use v1.0.0 for curtain-tiny
 });
 
 const { text } = await guard.protect(userInput); // redact before the model
