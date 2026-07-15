@@ -58,8 +58,10 @@ trim and quantization; see [`train/BUILD.md`](train/BUILD.md) for the step-by-st
 Integrity comes from reproducibility rather than a pinned remote
 revision. You control the weights that gate every redaction because you build them.
 
-- **Artifact:** `onnx/model_q4.onnx`, 14,874,677 bytes (the reference build)
-- **SHA-256:** `24ba1f03a8c3db8a4f760d4d266faeb679ba23f8c23f7be9ba6964cbfff6f6c1`
+- **`curtain-small`** (the reference build): `onnx/model_q4.onnx`, 58,102,914 bytes
+  SHA-256 `c9bfe8a0a9e3cfbb1a8995009259a5195109c8881f16905ef5be58351ad8786f`
+- **`curtain-tiny`** (frozen, `v1.0.0`): `onnx/model_q4.onnx`, 14,874,677 bytes
+  SHA-256 `24ba1f03a8c3db8a4f760d4d266faeb679ba23f8c23f7be9ba6964cbfff6f6c1`
 
 To verify a build, hash its `onnx/model_q4.onnx`:
 

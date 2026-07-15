@@ -1,15 +1,22 @@
 /**
- * Post-detection reconciliation: two deterministic passes over original-text
+ * Post-detection reconciliation: deterministic passes over original-text
  * offsets, run after the detector emits spans and before the default-deny
- * policy. Both only widen or add redactions, never remove one, matching the
- * library's recall-over-precision threat model.
+ * policy.
  *
  *  - snapNameSpans widens a name/street span whose edge fell mid-word (a
  *    subword tag such as "Smit" for "Smith") out to the whole word, so no
  *    letter fragment of a redacted name is left beside its placeholder.
+ *  - stripLeadingTitles trims an honorific ("Mr", "Herr", "Señora") the model
+ *    swept into a name span. This is the one pass that narrows a span; it is
+ *    safe because a title is not PII, so removing it exposes no identifier while
+ *    the name it precedes stays redacted.
  *  - propagateSurfaces redacts every other whole-word occurrence of a value the
  *    detector flagged once, so a name mentioned many times but tagged once does
  *    not leak on the rest.
+ *
+ * Every pass but stripLeadingTitles only widens or adds redactions, matching the
+ * library's recall-over-precision threat model; stripLeadingTitles removes only
+ * non-PII title characters, so it does not weaken that model.
  */
 import { shouldRedact, type PiiLabel, type Span } from "./types";
 
@@ -17,6 +24,47 @@ import { shouldRedact, type PiiLabel, type Span } from "./types";
  * handled by extendSpans; snapping a keep-set label would not change what is
  * redacted. */
 const SNAP_LABELS = new Set<PiiLabel>(["GIVEN_NAME", "SURNAME", "STREET_NAME"]);
+
+/** Person-name labels a leading honorific attaches to. */
+const TITLE_STRIP_LABELS = new Set<PiiLabel>(["GIVEN_NAME", "SURNAME"]);
+
+/**
+ * Honorifics the model tends to sweep into an adjacent name span, folded to
+ * lowercase and accent-free. Limited to unambiguous titles: entries that also
+ * occur as names or common words (Sen = Senator and the surname Sen, M, Fr, Rey,
+ * Bar, Sind) are deliberately excluded and left to the model, which can use
+ * context a fixed list cannot.
+ */
+const TITLES = new Set<string>([
+  // English
+  "mr", "mrs", "ms", "miss", "mister", "mistress", "master", "mstr", "madam", "madame",
+  "sir", "dr", "prof", "professor", "doctor", "rev", "reverend", "dame",
+  // French
+  "monsieur", "mademoiselle", "mlle", "mme", "mtre", "maitre", "docteure", "professeure", "professeur",
+  // German / Dutch
+  "herr", "frau", "fraulein", "doktorin", "professorin", "meister", "meist", "doktor",
+  "burgermeisterin", "bgm", "dhr", "mevr", "mevrouw", "mej",
+  // Italian
+  "signor", "signore", "signora", "signorina", "sig", "maestro", "senatore", "sindaca",
+  "sindaco", "dottore", "dottoressa", "professore", "professoressa",
+  // Spanish
+  "senor", "senora", "senorita", "sr", "sra", "srta", "dra", "ingeniero", "ing",
+  // Portuguese
+  "senhor", "senhora", "senhorita", "menina", "mna", "mw",
+  // Official / legislative (unabbreviated forms only)
+  "mayoress", "mairesse", "alcalde", "alc", "minister", "ministre", "senator", "senateur",
+  "presidente", "cde",
+]);
+
+const COMBINING = /\p{M}/gu;
+
+/** Lowercase and strip accents so "Señor"/"Senor"/"SEÑOR" all match. */
+function foldTitle(word: string): string {
+  return word.toLowerCase().normalize("NFKD").replace(COMBINING, "");
+}
+
+/** A leading word (optionally dotted) followed by whitespace, at offset 0. */
+const LEADING_WORD = /^(\p{L}+)\.?(\s+)/u;
 
 const LETTER = /\p{L}/u;
 
@@ -92,14 +140,46 @@ export function propagateSurfaces(
 }
 
 /**
- * Run both reconciliation passes in order: snap name spans to word boundaries,
- * then propagate every redact-class surface to its whole-word repeats. Snap
- * runs first so propagation searches for the corrected, whole-word surface.
+ * Trim a leading honorific ("Mr", "Herr", "Señora", ...) from each redact-class
+ * GIVEN_NAME / SURNAME span the model widened to include it. A title is stripped
+ * only when it is a whole word followed by whitespace and more span content, so
+ * the name it precedes always stays redacted and a title-only span (no trailing
+ * name) is left untouched. Stacked titles ("Prof Dr Smith") are trimmed in turn.
+ */
+export function stripLeadingTitles(
+  text: string,
+  spans: readonly Span[],
+  keepLabels: ReadonlySet<PiiLabel>,
+): Span[] {
+  return spans.map((s) => {
+    if (!TITLE_STRIP_LABELS.has(s.label) || !shouldRedact(s.label, keepLabels)) return s;
+    let start = s.start;
+    for (;;) {
+      const m = LEADING_WORD.exec(text.slice(start, s.end));
+      if (m === null || !TITLES.has(foldTitle(m[1]))) break;
+      const next = start + m[0].length;
+      if (next >= s.end) break; // never consume the whole span
+      start = next;
+    }
+    return start === s.start ? s : { ...s, start, text: text.slice(start, s.end) };
+  });
+}
+
+/**
+ * Run the reconciliation passes in order: snap name spans to word boundaries,
+ * strip any honorific the model swept into a name span, then propagate every
+ * redact-class surface to its whole-word repeats. Snap runs first so the name is
+ * whole; strip runs before propagate so the repeats searched for are the clean
+ * name, not the title-prefixed span.
  */
 export function reconcileSpans(
   text: string,
   spans: readonly Span[],
   keepLabels: ReadonlySet<PiiLabel>,
 ): Span[] {
-  return propagateSurfaces(text, snapNameSpans(text, spans), keepLabels);
+  return propagateSurfaces(
+    text,
+    stripLeadingTitles(text, snapNameSpans(text, spans), keepLabels),
+    keepLabels,
+  );
 }

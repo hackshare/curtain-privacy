@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { snapNameSpans, propagateSurfaces, reconcileSpans } from "./reconcile.ts";
+import { snapNameSpans, stripLeadingTitles, propagateSurfaces, reconcileSpans } from "./reconcile.ts";
 import { KEEP_LABELS, type Span } from "./types.ts";
 
 function span(text: string, needle: string, label: Span["label"], score = 0.9): Span {
@@ -95,4 +95,81 @@ test("reconcile snaps a fragment then propagates the whole word", () => {
   const out = reconcileSpans(text, spans, KEEP_LABELS);
   const covers = (i: number) => out.some((sp) => sp.start <= i && sp.end >= i + 6);
   for (const o of allOffsets(text, "Tanaka")) expect(covers(o)).toBe(true);
+});
+
+// --- stripLeadingTitles ---
+
+test("strips a leading honorific from a name span", () => {
+  const text = "The photographer, Miss Yowhana Mini Herrera.";
+  const [out] = stripLeadingTitles(text, [span(text, "Miss Yowhana Mini", "GIVEN_NAME")], KEEP_LABELS);
+  expect(text.slice(out.start, out.end)).toBe("Yowhana Mini");
+  expect(out.text).toBe("Yowhana Mini");
+});
+
+test("strips titles across languages, accent- and case-insensitively", () => {
+  for (const [text, needle, expected] of [
+    ["O cliente Sr Pariya Di.", "Sr Pariya", "Pariya"],
+    ["Geachte Dhr Jariff, dank.", "Dhr Jariff", "Jariff"],
+    ["Bonjour Monsieur Léon Dubois.", "Monsieur Léon", "Léon"],
+    ["Estimado SEÑOR Ervino Ok.", "SEÑOR Ervino", "Ervino"],
+    ["Sehr geehrte Frau Müller.", "Frau Müller", "Müller"],
+  ] as const) {
+    const [out] = stripLeadingTitles(text, [span(text, needle, "GIVEN_NAME")], KEEP_LABELS);
+    expect(text.slice(out.start, out.end)).toBe(expected);
+  }
+});
+
+test("strips stacked titles in turn", () => {
+  const text = "Als Prof Dr Smith aanwezig.";
+  const [out] = stripLeadingTitles(text, [span(text, "Prof Dr Smith", "SURNAME")], KEEP_LABELS);
+  expect(text.slice(out.start, out.end)).toBe("Smith");
+});
+
+test("leaves a non-title leading word untouched (same object)", () => {
+  const text = "Grace Kelly attended.";
+  const s = span(text, "Grace Kelly", "GIVEN_NAME");
+  const [out] = stripLeadingTitles(text, [s], KEEP_LABELS);
+  expect(out).toBe(s);
+});
+
+test("never consumes the whole span: a title-only span is left as-is", () => {
+  const text = "Miss";
+  const s = span(text, "Miss", "GIVEN_NAME");
+  const [out] = stripLeadingTitles(text, [s], KEEP_LABELS);
+  expect(out).toBe(s);
+});
+
+test("does not strip ambiguous title-or-name tokens (Sen)", () => {
+  const text = "Amartya Sen Roy spoke.";
+  const s = span(text, "Sen Roy", "SURNAME");
+  const [out] = stripLeadingTitles(text, [s], KEEP_LABELS);
+  expect(out).toBe(s);
+});
+
+test("ignores non-name labels", () => {
+  const text = "Dr House ID.";
+  const s = span(text, "Dr House", "GOVERNMENT_ID");
+  const [out] = stripLeadingTitles(text, [s], KEEP_LABELS);
+  expect(out).toBe(s);
+});
+
+test("preserves label, score, and source while narrowing", () => {
+  const text = "Herr Weber signed.";
+  const s: Span = { ...span(text, "Herr Weber", "SURNAME", 0.73), source: "ner" };
+  const [out] = stripLeadingTitles(text, [s], KEEP_LABELS);
+  expect(out.label).toBe("SURNAME");
+  expect(out.score).toBe(0.73);
+  expect(out.source).toBe("ner");
+  expect(text.slice(out.start, out.end)).toBe("Weber");
+});
+
+test("reconcileSpans strips the title before propagating the clean name", () => {
+  const text = "Miss Rivera called. Rivera waited.";
+  const out = reconcileSpans(text, [span(text, "Miss Rivera", "SURNAME")], KEEP_LABELS);
+  // Every emitted span is the clean surname; the title "Miss" is never redacted.
+  expect(out.every((s) => text.slice(s.start, s.end) === "Rivera")).toBe(true);
+  // Both "Rivera" occurrences are covered (the clean surface propagated, not "Miss Rivera").
+  for (const o of allOffsets(text, "Rivera")) {
+    expect(out.some((s) => s.start <= o && s.end >= o + "Rivera".length)).toBe(true);
+  }
 });

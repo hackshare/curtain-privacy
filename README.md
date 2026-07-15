@@ -43,22 +43,24 @@ const restored = guard.reveal(reply);
 
 ## The model
 
-The `curtain` model is a 14.2 MB 4-bit ONNX token classifier (MiniLM-L6-H384, 19,730-piece vocab, INT8 embedding) that runs on CPU via transformers.js, in the browser or Node. It is not fetched from a host: you build it from the committed training pipeline in `train/` (a from-base fine-tune on OpenPII plus augmentation, then vocab trim and quantization) and load it by path. See `MODEL_CARD.md` for the numbers and [`train/BUILD.md`](train/BUILD.md) for the step-by-step build.
+curtain ships in two sizes. **`curtain-small`** (the default) is a 59.9 MB 4-bit ONNX token classifier built on the 12-layer `Multilingual-MiniLM-L12-H384` with a SentencePiece tokenizer trimmed to its Latin-script sub-vocabulary; it runs on CPU via transformers.js, in the browser or Node. **`curtain-tiny`** is the 14.2 MB predecessor (6-layer MiniLM, WordPiece), kept published for the smallest-footprint tier and frozen at `v1.0.0`. They are a genuine tradeoff, not a strict upgrade: `curtain-small` closes the recall leaks tiny has on leading, repeated, and CJK-origin short names, at 4× the size.
+
+Neither is fetched from a host by default: you build it from the committed training pipeline in `train/` (a from-base fine-tune on OpenPII plus augmentation, then vocab trim and quantization) and load it by path. See `MODEL_CARD.md` for the side-by-side comparison and the numbers, and [`train/BUILD.md`](train/BUILD.md) for the step-by-step build.
 
 ### Hosted model
 
-The model is also published at [`hackshare/curtain-privacy`](https://huggingface.co/hackshare/curtain-privacy) on Hugging Face. For web and Node, pass the Hugging Face repo id and pin a revision:
+The model is also published at [`hackshare/curtain-privacy`](https://huggingface.co/hackshare/curtain-privacy) on Hugging Face. For web and Node, pass the Hugging Face repo id and pin a revision — `v2.0.0` for `curtain-small`, `v1.0.0` for `curtain-tiny`:
 
 ```ts
-const guard = await createGuard({ model: "hackshare/curtain-privacy", revision: "v1.0.0" });
+const guard = await createGuard({ model: "hackshare/curtain-privacy", revision: "v2.0.0" });
 ```
 
 For iOS and Android, fetch these two files from the pinned resolve URL:
 
-- `https://huggingface.co/hackshare/curtain-privacy/resolve/v1.0.0/onnx/model_q4.onnx`
-- `https://huggingface.co/hackshare/curtain-privacy/resolve/v1.0.0/tokenizer.json`
+- `https://huggingface.co/hackshare/curtain-privacy/resolve/v2.0.0/onnx/model_q4.onnx`
+- `https://huggingface.co/hackshare/curtain-privacy/resolve/v2.0.0/tokenizer.json`
 
-The local-build path (above) remains the maximum-integrity option: you control the artifact end to end and can verify its SHA-256 directly. For the hosted path, integrity comes from pinning revision `v1.0.0` and checking the published SHA-256; on web, transformers.js fetches the files internally so the guarantee is revision-pinning plus transport security, not a local hash check. See [`train/hf_card.md`](train/hf_card.md) for the full integration recipes.
+The local-build path (above) remains the maximum-integrity option: you control the artifact end to end and can verify its SHA-256 directly. For the hosted path, integrity comes from pinning the revision and checking the published SHA-256; on web, transformers.js fetches the files internally so the guarantee is revision-pinning plus transport security, not a local hash check. See [`train/hf_card.md`](train/hf_card.md) for the full integration recipes.
 
 ## Policy
 
@@ -70,7 +72,7 @@ Placeholders are stable within a session. If a user's name appears five times in
 
 curtain-privacy covers US inputs and 24 Latin-script languages: English, Spanish, French, German, Italian, Portuguese, Dutch, Polish, Czech, Slovak, Lithuanian, Latvian, Estonian, Swedish, Danish, Finnish, Hungarian, Romanian, Slovenian, Croatian, Vietnamese, Malay, Indonesian, and Tagalog.
 
-On a frozen 30,000-row slice of OpenPII (the primary benchmark): 98.2% of private occurrences are fully protected and 96.4% of public text is preserved. On a hand-curated real-world eval of 157 cases, the protected rate is 99.76%, and on a 300-case held-out fairness corpus it is 99.4%.
+`curtain-small` numbers, scored end-to-end through the full shipped pipeline. On a frozen 30,000-row slice of OpenPII (the primary benchmark): 98.4% of private occurrences are fully protected and 96.7% of public text is preserved, missing about 60% fewer occurrences than `curtain-tiny`. On a hand-curated real-world eval of 157 cases the protected rate is 99.3%, and on a 300-case held-out fairness corpus it is 100%. Person-name recall clears 95.9% in every one of the 24 languages, and the leading-, repeated-, and short-name patterns that leaked on `curtain-tiny` are fully caught.
 
 Adversarial caveat: detection normalizes input first, so single-vector obfuscation such as zero-width characters or cross-script homoglyphs is handled, but a motivated user composing novel or layered evasions can still get through. The system is designed to protect users who are entering their own information in good faith from incidental disclosure to downstream services. It's not designed to stop someone actively trying to smuggle PII past the filter.
 

@@ -13,8 +13,9 @@ import { detectNer, loadNerClassifier } from "../../src/ner/classifier";
 import { resolveThresholds, type OperatingPoint } from "../../src/thresholds.ts";
 import { extendSpans } from "../../src/recognizers.ts";
 import { applyPolicy } from "../../src/policy";
+import { reconcileSpans } from "../../src/reconcile.ts";
 import { premask, projectMaskedSpan, NO_PREMASK_LABELS } from "../../src/premask";
-import type { Span } from "../../src/types";
+import { KEEP_LABELS, type Span } from "../../src/types";
 import { LeakAccumulator, type GoldTerm } from "./leaks.ts";
 import { mapOpenPiiLabel } from "./labels";
 import { type GoldSpan, type PredSpan, percentile, Stratum, expectedCalibrationError } from "./score";
@@ -120,7 +121,11 @@ async function main(): Promise<void> {
       }
     }
     const detected: Span[] = extendSpans(row.source_text, [...heuristic, ...modelSpans]);
-    const redactSpans = applyPolicy(detected); // non-overlapping, keep-set filtered — exactly what ships
+    // Match the shipped guard.detectOnOriginal: reconcile (snap name spans to word
+    // boundaries, strip swept-in honorifics, propagate a caught surface to its
+    // repeats) before the default-deny policy. Keep this in sync with src/guard.ts.
+    const reconciled = reconcileSpans(row.source_text, detected, KEEP_LABELS);
+    const redactSpans = applyPolicy(reconciled); // non-overlapping, keep-set filtered — exactly what ships
     latencies.push(performance.now() - t0);
 
     const pred: PredSpan[] = redactSpans.map((s) => ({ label: s.label, start: s.start, end: s.end, score: s.score }));
