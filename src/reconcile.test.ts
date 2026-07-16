@@ -163,6 +163,25 @@ test("preserves label, score, and source while narrowing", () => {
   expect(text.slice(out.start, out.end)).toBe("Weber");
 });
 
+test("strips a leading greeting swept into the name span", () => {
+  for (const [text, needle, expected] of [
+    ["Hi John, can you send it?", "Hi John", "John"],
+    ["Hey Priya, are we on?", "Hey Priya", "Priya"],
+    ["Dear Sarah, the invoice is attached.", "Dear Sarah", "Sarah"],
+    ["Hola Cruz, gracias.", "Hola Cruz", "Cruz"],
+  ] as const) {
+    const [out] = stripLeadingTitles(text, [span(text, needle, "GIVEN_NAME")], KEEP_LABELS);
+    expect(text.slice(out.start, out.end)).toBe(expected);
+  }
+});
+
+test("never consumes the whole span: a greeting-only span is left as-is", () => {
+  const text = "Hi";
+  const s = span(text, "Hi", "GIVEN_NAME");
+  const [out] = stripLeadingTitles(text, [s], KEEP_LABELS);
+  expect(out).toBe(s);
+});
+
 test("reconcileSpans strips the title before propagating the clean name", () => {
   const text = "Miss Rivera called. Rivera waited.";
   const out = reconcileSpans(text, [span(text, "Miss Rivera", "SURNAME")], KEEP_LABELS);

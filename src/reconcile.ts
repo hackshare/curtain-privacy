@@ -6,10 +6,11 @@
  *  - snapNameSpans widens a name/street span whose edge fell mid-word (a
  *    subword tag such as "Smit" for "Smith") out to the whole word, so no
  *    letter fragment of a redacted name is left beside its placeholder.
- *  - stripLeadingTitles trims an honorific ("Mr", "Herr", "Señora") the model
- *    swept into a name span. This is the one pass that narrows a span; it is
- *    safe because a title is not PII, so removing it exposes no identifier while
- *    the name it precedes stays redacted.
+ *  - stripLeadingTitles trims a leading honorific ("Mr", "Herr", "Señora") or
+ *    greeting ("Hi", "Dear") the model swept into a name span. This is the one
+ *    pass that narrows a span; it is safe because neither a title nor a greeting
+ *    is PII, so removing it exposes no identifier while the name it precedes
+ *    stays redacted.
  *  - propagateSurfaces redacts every other whole-word occurrence of a value the
  *    detector flagged once, so a name mentioned many times but tagged once does
  *    not leak on the rest.
@@ -54,6 +55,20 @@ const TITLES = new Set<string>([
   // Official / legislative (unabbreviated forms only)
   "mayoress", "mairesse", "alcalde", "alc", "minister", "ministre", "senator", "senateur",
   "presidente", "cde",
+]);
+
+/**
+ * Greetings the model tends to sweep into the name span that follows ("Hi John",
+ * "Dear Sarah"), folded like TITLES. Same recall-safe rationale as a title: a
+ * greeting is never PII, so trimming it exposes no identifier while the name it
+ * precedes stays redacted. Limited to unambiguous greetings; words that also read
+ * as names or common words are left out.
+ */
+const SALUTATIONS = new Set<string>([
+  "hi", "hii", "hiya", "hey", "heya", "hello", "hullo", "howdy", "yo",
+  "dear", "dearest", "greetings",
+  "hola", "ola", "oi", "ciao", "salve", "bonjour", "salut", "coucou",
+  "hallo", "hoi", "servus", "moin",
 ]);
 
 const COMBINING = /\p{M}/gu;
@@ -140,11 +155,12 @@ export function propagateSurfaces(
 }
 
 /**
- * Trim a leading honorific ("Mr", "Herr", "Señora", ...) from each redact-class
- * GIVEN_NAME / SURNAME span the model widened to include it. A title is stripped
- * only when it is a whole word followed by whitespace and more span content, so
- * the name it precedes always stays redacted and a title-only span (no trailing
- * name) is left untouched. Stacked titles ("Prof Dr Smith") are trimmed in turn.
+ * Trim a leading honorific ("Mr", "Herr", "Señora", ...) or greeting ("Hi",
+ * "Dear", ...) from each redact-class GIVEN_NAME / SURNAME span the model widened
+ * to include it. A prefix is stripped only when it is a whole word followed by
+ * whitespace and more span content, so the name it precedes always stays redacted
+ * and a prefix-only span is left untouched. Stacked prefixes ("Prof Dr Smith",
+ * "Hi Mr Smith") are trimmed in turn.
  */
 export function stripLeadingTitles(
   text: string,
@@ -156,7 +172,9 @@ export function stripLeadingTitles(
     let start = s.start;
     for (;;) {
       const m = LEADING_WORD.exec(text.slice(start, s.end));
-      if (m === null || !TITLES.has(foldTitle(m[1]))) break;
+      if (m === null) break;
+      const fold = foldTitle(m[1]);
+      if (!TITLES.has(fold) && !SALUTATIONS.has(fold)) break;
       const next = start + m[0].length;
       if (next >= s.end) break; // never consume the whole span
       start = next;
