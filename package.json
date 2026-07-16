@@ -38,7 +38,8 @@
     "eval:real:check": "bun eval/real/check.ts",
     "eval:adversarial": "bun eval/adversarial/run.ts",
     "eval:fairness": "bun eval/real/check.ts --cases train/fairness/cases.jsonl",
-    "eval:wasm": "bun eval/wasm/gate.ts"
+    "eval:wasm": "bun eval/wasm/gate.ts",
+    "eval:chat": "bun eval/chat/gate.ts"
   },
   "type": "module"
 }
