@@ -32,7 +32,7 @@ export interface RedactionModel {
   readonly note: string;
 }
 export const REDACTION_MODELS: readonly RedactionModel[] = [
-  { revision: "v2.0.0", name: "curtain-small", size: "60 MB", note: "24 languages" },
+  { revision: "v2.1.0", name: "curtain-small", size: "60 MB", note: "24 languages" },
   { revision: "v1.0.0", name: "curtain-tiny", size: "14 MB", note: "fastest" },
 ];
 export const DEFAULT_REVISION = REDACTION_MODELS[0].revision;
@@ -41,7 +41,7 @@ const REPO = "hackshare/curtain-privacy";
 
 /** Resolve each tag to the immutable commit it currently points to. Loading the
  * model from a SHA-pinned revision keeps the browser cache correct when a moving
- * tag (v2.0.0) is re-pointed to a newer build: the SHA changes, so transformers.js
+ * tag (v2.1.0) is re-pointed to a newer build: the SHA changes, so transformers.js
  * fetches the new files rather than serving the stale ones it cached under the
  * tag. Falls back to the tag itself if Hugging Face is unreachable. */
 export async function resolveRevisions(): Promise<Map<string, string>> {

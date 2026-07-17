@@ -4,7 +4,7 @@
 
 curtain-privacy is a client-side system for removing personally identifiable information from user-typed text before it leaves the device. It forks **Rampart**, an in-browser PII redactor, inheriting Rampart's architecture, training recipe, and base deterministic layer, and contributes its own trained models plus the layers around it: a two-model family (curtain-small and curtain-tiny) trained from public base checkpoints on OpenPII with targeted augmentation, a stricter measurement methodology, a deterministic recognizer layer that closes specific classes of leak, an evaluation on hand-authored real-world text, and a security model for the reversible-placeholder layer that makes redaction usable in a chat without opening an exfiltration channel.
 
-The system is scoped to US inputs and the 24 Latin-script languages the models are trained on (English, Spanish, French, German, Italian, Portuguese, Dutch, Polish, Czech, Slovak, Lithuanian, Latvian, Estonian, Swedish, Danish, Finnish, Hungarian, Romanian, Slovenian, Croatian, Vietnamese, Malay, Indonesian, Tagalog). curtain ships as a two-model family that shares one pipeline: **curtain-small**, the default and the actively developed model, re-bases the encoder to a 12-layer multilingual checkpoint behind a cased, accent-preserving tokenizer and ships as a 59.9 MB INT8/4-bit ONNX artifact; **curtain-tiny**, frozen at v1.0.0 for the smallest-footprint tier, is a 14.2 MB 4-bit artifact on a 6-layer lowercased encoder. The headline numbers here are curtain-small's, scored end to end through the shipped pipeline. On a frozen 30,000-row held-out slice of the OpenPII 1.5M corpus, disjoint from training, measured under a character-level, occurrence-anchored metric, curtain-small fully protects **98.37%** of private occurrences (Wilson 95% CI [98.30%, 98.43%]) at **96.71%** public-text retention, with **99.42%** significant-character recall, missing about 60% fewer private occurrences than curtain-tiny on the same slice. On a separate 157-case hand-authored en-US corpus scored under the same metric, it fully protects **99.28%** of redactable occurrences while over-redacting **2.44%** of deliberately planted keep-set landmines, under the 3% gate, and on a 300-case held-out diverse-name corpus it protects **100.00%** at **0.00%** over-redaction.
+The system is scoped to US inputs and the 24 Latin-script languages the models are trained on (English, Spanish, French, German, Italian, Portuguese, Dutch, Polish, Czech, Slovak, Lithuanian, Latvian, Estonian, Swedish, Danish, Finnish, Hungarian, Romanian, Slovenian, Croatian, Vietnamese, Malay, Indonesian, Tagalog). curtain ships as a two-model family that shares one pipeline: **curtain-small**, the default and the actively developed model, re-bases the encoder to a 12-layer multilingual checkpoint behind a cased, accent-preserving tokenizer and ships as a 59.9 MB INT8/4-bit ONNX artifact; **curtain-tiny**, frozen at v1.0.0 for the smallest-footprint tier, is a 14.2 MB 4-bit artifact on a 6-layer lowercased encoder. The headline numbers here are curtain-small's, scored end to end through the shipped pipeline. On a frozen 30,000-row held-out slice of the OpenPII 1.5M corpus, disjoint from training, measured under a character-level, occurrence-anchored metric, curtain-small fully protects **98.34%** of private occurrences (Wilson 95% CI [98.27%, 98.41%]) at **97.00%** public-text retention, with **99.37%** significant-character recall, missing about 56% fewer private occurrences than curtain-tiny on the same slice. On a separate 157-case hand-authored en-US corpus scored under the same metric, it fully protects **99.28%** of redactable occurrences while over-redacting **1.46%** of deliberately planted keep-set landmines, under the 3% gate, and on a 300-case held-out diverse-name corpus it protects **100.00%** at **0.00%** over-redaction.
 
 curtain-privacy is harm reduction, not perfect protection. Any privacy system that depends on a trusted server-side environment inherits that environment's risk: once unredacted text leaves the device, to a model provider, a logging pipeline, an analytics SDK, or a future breach, it is exposed to failures beyond the user's control. Redacting on the device bounds the impact of any downstream failure by what the client already removed, because a later component cannot leak what was never sent. No model this small catches every instance of PII, so the system runs at a recall-biased operating point and measures conservatively: it reports what a strict character-level metric shows rather than the higher number a looser metric would produce.
 
@@ -88,7 +88,7 @@ Blanket `[REDACTED]` makes an assistant's replies useless, so each redacted valu
 
 Each model is fine-tuned from a public base checkpoint with a 35-label BIO head, following Rampart's documented recipe: the structured classes (SSN, credit card, IP address) are premasked to sentinels during dataset construction so training and inference see the same distribution; text is folded to the model's own model space; dates, ages, and income map to non-PII; and the keep-set is `{CITY, STATE, ZIP_CODE}`. The model-space fold differs between the two models: curtain-tiny fine-tunes `nreimers/MiniLM-L6-H384-uncased` behind a WordPiece tokenizer that lowercases and strips accents (`José` becomes `jose`), matching BERT's `do_lower_case=True`; curtain-small fine-tunes `microsoft/Multilingual-MiniLM-L12-H384` behind XLM-R's SentencePiece tokenizer, which is cased and NFKC-normalized, so `José` stays `José` and `Müller` stays `Müller` and the model sees names as written. The runtime applies the matching fold at inference from the tokenizer it loads, so the train-time and inference-time distributions match by construction for either model, and a guard in the pipeline fails the run if a tokenizer change breaks that assumption.
 
-The training data is about 150,000 rows drawn from the OpenPII train split, disjoint by construction from the frozen 30,000-row eval slice, plus targeted augmentation that reproduces the distribution the public corpus lacks. The augmentation adds diverse Latin-script names (drawn across many locales), CJK-origin and short-surname coverage, leading- and repeated-subject narratives (a named subject introduced once and referred back to across a passage), messy real-world formatting (field-style separators, case and spacing noise), GOVERNMENT_ID variety (custom-prefixed identifiers next to identity cues), and keep-negatives: order and reference codes and city/state values left untagged, so the model learns the keep boundary rather than over-generalizing. Two components are decisive. The keep-negatives hold retention: recall-focused augmentation alone closed the real-world detection gap but shifted the model toward over-redaction, and only after the keep-negatives were added did a model clear both the recall and the retention gates. The leading/repeated-subject and CJK/short-name augmentation holds recall: it is what closes the leaks curtain-small was built to fix (§5.1).
+The training data is about 150,000 rows drawn from the OpenPII train split, disjoint by construction from the frozen 30,000-row eval slice, plus targeted augmentation that reproduces the distribution the public corpus lacks. The augmentation adds diverse Latin-script names (drawn across many locales), CJK-origin and short-surname coverage, leading- and repeated-subject narratives (a named subject introduced once and referred back to across a passage), messy real-world formatting (field-style separators, case and spacing noise), GOVERNMENT_ID variety (custom-prefixed identifiers next to identity cues), Filipino speaker-label chat (a name in a speaker-prefix, a `(M)` or `(F)` tag, an endearment, or a repeated position, including common-noun-homograph nicknames such as `Princess` and `Boy` that read as ordinary words), and keep-negatives: order and reference codes and city/state values left untagged, so the model learns the keep boundary rather than over-generalizing. Three components are decisive. The keep-negatives hold retention: recall-focused augmentation alone closed the real-world detection gap but shifted the model toward over-redaction, and only after the keep-negatives were added did a model clear both the recall and the retention gates. The leading/repeated-subject and CJK/short-name augmentation holds recall: it is what closes the leaks curtain-small was built to fix (§5.1). The Filipino speaker-label augmentation holds recall on informal chat: it lifts detection of names in speaker-prefix and endearment positions the public corpus under-represents (§5.1).
 
 Every candidate is scored end to end through the shipped TypeScript pipeline on all three evals, never trusted from a training loss curve. The winning checkpoint is vocab-trimmed and exported to 4-bit MatMul plus INT8 embedding (§3.2). curtain-tiny trims BERT's roughly 30,500-piece WordPiece vocabulary to 19,730 pieces; curtain-small keeps every entirely-Latin-script piece of XLM-R's 250,002-piece SentencePiece vocabulary, 113,876 in all, so held-out non-English names tokenize into learned whole-word pieces rather than shattering into characters (a frequency-only trim collapsed Vietnamese recall and was rejected). The quantization is near lossless: on every gate the quantized artifact tracks its full-precision export closely.
 
@@ -117,20 +117,20 @@ Because the two metrics are defined differently, the character-level numbers her
 
 The primary benchmark runs the shipped pipeline end to end over a frozen 30,000-row held-out slice of OpenPII (129,258 private occurrences), disjoint from the training data, across the seven Latin-script languages in the held-out slice, and writes the per-run manifest the numbers cite. Both models are scored through the same harness on the same slice. Under the character-level metric, curtain-small (the default) reaches:
 
-- **protected-rate 98.37%**, Wilson 95% CI [98.30%, 98.43%]
-- **char-recall 99.42%**
-- **public char-retention 96.71%**
+- **protected-rate 98.34%**, Wilson 95% CI [98.27%, 98.41%]
+- **char-recall 99.37%**
+- **public char-retention 97.00%**
 
 Against curtain-tiny on the same slice:
 
 | | curtain-small | curtain-tiny |
 | --- | --- | --- |
-| protected-rate | 98.37% | 98.40% |
-| char-recall | 99.42% | 98.78% |
-| public char-retention | 96.71% | 97.28% |
-| undetected private occurrences | 527 | 1,317 |
+| protected-rate | 98.34% | 98.40% |
+| char-recall | 99.37% | 98.78% |
+| public char-retention | 97.00% | 97.28% |
+| undetected private occurrences | 575 | 1,317 |
 
-curtain-small holds curtain-tiny's protected-rate while missing about 60% fewer private occurrences (527 versus 1,317) and lifting char-recall by 0.64 percentage points, for roughly 0.6 percentage points more over-redaction. That is the recall-first trade this system is tuned for: the extra encoder depth and the full Latin-script vocabulary buy recall on the hard cases at a small retention cost. Keep-misroutes (a kept class wrongly redacted) are zero for both.
+curtain-small holds curtain-tiny's protected-rate while missing about 56% fewer private occurrences (575 versus 1,317) and lifting char-recall by 0.59 percentage points, for roughly 0.3 percentage points more over-redaction. That is the recall-first trade this system is tuned for: the extra encoder depth and the full Latin-script vocabulary buy recall on the hard cases at a small retention cost. Keep-misroutes (a kept class wrongly redacted) are zero for both.
 
 **The recall leaks curtain-small closes.** The aggregate protected-rate is flat between the two models, so the case for curtain-small is in the categories curtain-tiny leaks on, measured on a categorized probe run through the full library at an aggressive operating point. These are the patterns real chat produces: a first name alone, a subject named once and referred back to, and CJK-origin short surnames.
 
@@ -143,21 +143,23 @@ curtain-small holds curtain-tiny's protected-rate while missing about 60% fewer 
 
 The fix holds on names and templates the model never trained on: on an unseen-name generation of the same probe, leading-name and repeated-subject recall are both 100%. The leading/repeated-subject and CJK/short-name augmentation (§3.5) is what closes these, the recall counterpart to the keep-negatives that hold retention.
 
+**Speaker-label chat, the v2.1 augmentation.** curtain-small v2.1 adds a Filipino speaker-label augmentation to the recipe (`--n-speaker 6000`). It targets the informal-chat convention the public corpus under-represents: a name in a speaker-prefix (`Marites:`), a `(M)` or `(F)` gender tag, an endearment, or a repeated position, including common-noun-homograph nicknames (`Princess`, `Boy`) that read as ordinary words. On the committed `eval/chat` gate, speaker-label recall rises from 75.0% to 95.4% with salutation over-redaction at 0%. Precision held: the real-157 keep-violation improved (2.44% to 1.46%), the European bench and the 24-language recall floor did not regress, and adversarial coverage stayed 157 of 157. The remaining leaks are the harder common-noun homographs (`Princess`, `Baby`, `Boy`) in sentence-initial position.
+
 Per-language char-recall on the seven-language slice shows where the residual risk sits:
 
 | language | curtain-small | curtain-tiny |
 | --- | --- | --- |
-| English | 99.19% | 98.42% |
-| German | 99.51% | 98.87% |
-| Spanish | 99.35% | 99.53% |
-| French | 99.65% | 99.37% |
-| Italian | 99.63% | 97.34% |
-| Dutch | 99.20% | 98.91% |
-| Portuguese | 99.57% | 99.60% |
+| English | 99.01% | 98.42% |
+| German | 99.44% | 98.87% |
+| Spanish | 99.33% | 99.53% |
+| French | 99.73% | 99.37% |
+| Italian | 99.51% | 97.34% |
+| Dutch | 99.41% | 98.91% |
+| Portuguese | 99.67% | 99.60% |
 
-Italian gains the most (97.34% to 99.63%), closing the residual SSN and credit-card format variants curtain-tiny missed. Public retention is lowest in Dutch (95.57%) and highest in Portuguese (98.15%).
+Italian gains the most (97.34% to 99.51%), closing the residual SSN and credit-card format variants curtain-tiny missed. Public retention is lowest in Dutch (95.54%) and highest in Portuguese (97.91%).
 
-**Person-name recall across all 24 languages.** A separate eval measures person-name recall (significant-character coverage) on a pinned per-language validation sample across all 24 supported languages, through the full library. Every language reaches at least 95.9%. The worst two are Tagalog (97.3%) and Vietnamese (95.9%); English, French, Spanish, Croatian, and Swedish reach 100%. Both Tagalog and Vietnamese are down slightly from curtain-tiny (99.2% and 96.2%) while 21 of 24 languages improve and the worst-language floor rises from 95.4% (curtain-tiny, Lithuanian) to 95.9%; Lithuanian itself rises to 98.9%.
+**Person-name recall across all 24 languages.** A separate eval measures person-name recall (significant-character coverage) on a pinned per-language validation sample across all 24 supported languages, through the full library. Every language reaches at least 95.9%. The worst two are Vietnamese (95.9%) and Tagalog (98.4%); English, French, Spanish, Croatian, and Swedish reach 100%. Both Vietnamese and Tagalog are down slightly from curtain-tiny (96.2% and 99.2%) while most of the 24 languages improve and the worst-language floor rises from 95.4% (curtain-tiny, Lithuanian) to 95.9%; Lithuanian itself rises to 99.3%.
 
 The over-redaction gate on this slice is a 0.2-percentage-point budget: a change to the pipeline that lifts recall must not cost more than that in retention. The leak-closing deterministic-layer work (the fiscal-ID extension and the monotonic merge) was developed against this budget and stayed inside it.
 
@@ -166,7 +168,7 @@ The over-redaction gate on this slice is a 0.2-percentage-point budget: a change
 OpenPII conversations are clean and well-formed, which flatters any redactor. curtain-privacy adds a 157-case hand-authored en-US corpus with format-valid but fake PII, split into a normal tier and a messy tier (typos, unusual spacing, mixed formatting), and deliberately planted keep-set landmines (geographic terms and numeric-looking order codes that should not be redacted). It is scored under the same character-level metric. curtain-small:
 
 - **protected-rate 99.28%**
-- **keep-violation-rate 2.44%** (under the 3% over-redaction gate)
+- **keep-violation-rate 1.46%** (under the 3% over-redaction gate)
 
 The custom-prefixed government identifiers the base public corpus never taught are caught: the GOVERNMENT_ID augmentation (§3.5) and the context-cued recognizer (§3.1) cover them from two directions. The remaining exposure is over-redaction: a handful of keep-set landmines that the model or the recognizers grabbed, where state names and order codes read as identifiers on a recall-first system. They sit under the 3% over-redaction gate.
 

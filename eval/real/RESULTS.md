@@ -5,9 +5,9 @@ Cases: 157. Metric: char-level occurrence-anchored (same as the OpenPII bench).
 ## Headline
 
 - protected_rate (overall): **99.28%** (414/417)
-- keep_violation_rate (overall): **2.44%** (5/205)
-- normal: protected 99.27% (273/275), keep-violation 0.82% (1/122)
-- messy: protected 99.30% (141/142), keep-violation 4.82% (4/83)
+- keep_violation_rate (overall): **1.46%** (3/205)
+- normal: protected 99.27% (273/275), keep-violation 0.00% (0/122)
+- messy: protected 99.30% (141/142), keep-violation 3.61% (3/83)
 
 ## By label (protected_rate)
 
@@ -39,7 +39,5 @@ Cases: 157. Metric: char-level occurrence-anchored (same as the OpenPII bench).
 ## Keep violations (landmines that got redacted)
 
 - `bank-messy-01`: "WIRE-20260502"
-- `api-ip-url-01`: "#TKT-20260430"
-- `ssn-name-02`: "#CAL-2290"
 - `bank-transfer-03`: "#VEND-2210"
 - `dl-traffic-01`: "CO"

@@ -9,7 +9,7 @@ from augment.names import swap_names, swap_cjk_names
 from augment.messy import messify
 from augment.govid import synth_govid_rows
 from augment.negatives import synth_negative_rows
-from augment.narratives import synth_narrative_rows
+from augment.narratives import synth_narrative_rows, synth_speaker_rows
 from augment.verify import verify_row
 from augment.rows import assert_spans_exact, AUG_UID_BASE, PERSON_LABELS
 
@@ -23,7 +23,7 @@ def _load_seed() -> list[dict]:
 
 def build_augmentation(base_rows: list[dict], seed: int, name_frac: float,
                        messy_frac: float, n_govid: int, n_neg: int = 0,
-                       n_narrative: int = 0, n_cjk: int = 0) -> list[dict]:
+                       n_narrative: int = 0, n_cjk: int = 0, n_speaker: int = 0) -> list[dict]:
     rng = random.Random(seed)
     out: list[dict] = []
     for i, row in enumerate(base_rows):
@@ -48,6 +48,7 @@ def build_augmentation(base_rows: list[dict], seed: int, name_frac: float,
     out.extend(synth_govid_rows(seed, n_govid))
     out.extend(synth_negative_rows(seed, n_neg))
     out.extend(synth_narrative_rows(seed, n_narrative))
+    out.extend(synth_speaker_rows(seed, n_speaker))
     out.extend(_load_seed())
     return out
 
@@ -64,8 +65,9 @@ if __name__ == "__main__":
     ap.add_argument("--n-neg", type=int, default=0)
     ap.add_argument("--n-narrative", type=int, default=0)
     ap.add_argument("--n-cjk", type=int, default=0)
+    ap.add_argument("--n-speaker", type=int, default=0)
     a = ap.parse_args()
     base = [json.loads(l) for l in pathlib.Path(a.base).read_text().splitlines() if l.strip()]
-    rows = build_augmentation(base, a.seed, a.name_frac, a.messy_frac, a.n_govid, a.n_neg, a.n_narrative, a.n_cjk)
+    rows = build_augmentation(base, a.seed, a.name_frac, a.messy_frac, a.n_govid, a.n_neg, a.n_narrative, a.n_cjk, a.n_speaker)
     pathlib.Path(a.out).write_text("\n".join(json.dumps(r) for r in rows) + "\n")
     print(f"wrote {len(rows)} augmentation rows -> {a.out}")

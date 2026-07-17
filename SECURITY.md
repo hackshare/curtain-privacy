@@ -59,7 +59,7 @@ Integrity comes from reproducibility rather than a pinned remote
 revision. You control the weights that gate every redaction because you build them.
 
 - **`curtain-small`** (the reference build): `onnx/model_q4.onnx`, 58,102,914 bytes
-  SHA-256 `c9bfe8a0a9e3cfbb1a8995009259a5195109c8881f16905ef5be58351ad8786f`
+  SHA-256 `7b44776ee72b34163a26a5fffe717612d805554a6f92302255f7bac874756c2a`
 - **`curtain-tiny`** (frozen, `v1.0.0`): `onnx/model_q4.onnx`, 14,874,677 bytes
   SHA-256 `24ba1f03a8c3db8a4f760d4d266faeb679ba23f8c23f7be9ba6964cbfff6f6c1`
 

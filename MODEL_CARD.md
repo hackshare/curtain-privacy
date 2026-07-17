@@ -80,7 +80,7 @@ The runtime library loads either model from the same code path — it detects Wo
 
 The rest of this card documents **`curtain-small`** unless stated otherwise.
 
-The model is distributed at [`hackshare/curtain-privacy`](https://huggingface.co/hackshare/curtain-privacy) on Hugging Face; pin revision `v2.0.0` for `curtain-small` or `v1.0.0` for `curtain-tiny`. Serving files and integration recipes are in [`train/hf_card.md`](train/hf_card.md).
+The model is distributed at [`hackshare/curtain-privacy`](https://huggingface.co/hackshare/curtain-privacy) on Hugging Face; pin revision `v2.1.0` for `curtain-small` or `v1.0.0` for `curtain-tiny`. Serving files and integration recipes are in [`train/hf_card.md`](train/hf_card.md).
 
 curtain-privacy is a fork of **Rampart** by National Design Studio, inheriting its training recipe, label taxonomy, and base deterministic layer. `curtain-tiny` also inherits Rampart's encoder family (MiniLM-L6); `curtain-small` re-bases the encoder to Multilingual-MiniLM-L12 for multilingual capacity. Neither is Rampart's released weights: curtain trains from public base checkpoints on OpenPII plus targeted augmentation. The numbers below are this model's own, scored end-to-end through the shipped pipeline under a character-level metric (see "Evaluation").
 
@@ -151,7 +151,7 @@ const { text } = await guard.protect("My name is Alex Rivera and my SSN is 472-8
 
 The augmentation is deterministic from a seed and reproducible from the committed generators.
 
-Two components were decisive. The **keep-negatives** stop the added redactable variety from pushing the model into over-redaction: adding them is what lets a model clear both the recall and the retention gates. The **leading/repeated-subject and CJK/short-name augmentation** is what closes the recall leaks that a public-corpus-only fine-tune leaves (see "The recall-leak fix").
+Three components were decisive. The **keep-negatives** stop the added redactable variety from pushing the model into over-redaction: adding them is what lets a model clear both the recall and the retention gates. The **leading/repeated-subject and CJK/short-name augmentation** is what closes the recall leaks that a public-corpus-only fine-tune leaves (see "The recall-leak fix"). The **speaker-label augmentation** holds recall on the informal-chat convention the public corpus under-represents, where a name is carried by a speaker prefix or an endearment rather than a full mention (see "Speaker-label recall").
 
 ### Pre-processing
 
@@ -282,29 +282,29 @@ Measured by the committed `eval/bench` harness running the full shipped pipeline
 
 |                                | curtain-small | curtain-tiny |
 | ------------------------------ | ------------- | ------------ |
-| protected-rate                 | 98.37% (Wilson 95% CI [98.30, 98.43]) | 98.40% |
-| char-recall                    | **99.42%**    | 98.78% |
-| public char-retention          | 96.71%        | 97.28% |
-| undetected private occurrences | **527**       | 1,317  |
+| protected-rate                 | 98.34% (Wilson 95% CI [98.27, 98.41]) | 98.40% |
+| char-recall                    | **99.37%**    | 98.78% |
+| public char-retention          | 97.00%        | 97.28% |
+| undetected private occurrences | **575**       | 1,317  |
 
-`curtain-small` misses about 60% fewer private occurrences (527 vs 1,317) for roughly 0.6 pp more
-over-redaction — the recall-first trade this system is tuned for. Keep-misroutes (a kept class
+`curtain-small` misses about 56% fewer (575 vs 1,317) for roughly 0.3 pp more
+over-redaction, the recall-first trade this system is tuned for. Keep-misroutes (a kept class
 wrongly redacted) are zero for both.
 
 Per-language char-recall on the seven-language slice:
 
 | Language | curtain-small | curtain-tiny |
 | --- | --- | --- |
-| English (`en`)    | 99.19% | 98.42% |
-| German (`de`)     | 99.51% | 98.87% |
-| Spanish (`es`)    | 99.35% | 99.53% |
-| French (`fr`)     | 99.65% | 99.37% |
-| Italian (`it`)    | 99.63% | 97.34% |
-| Dutch (`nl`)      | 99.20% | 98.91% |
-| Portuguese (`pt`) | 99.57% | 99.60% |
+| English (`en`)    | 99.01% | 98.42% |
+| German (`de`)     | 99.44% | 98.87% |
+| Spanish (`es`)    | 99.33% | 99.53% |
+| French (`fr`)     | 99.73% | 99.37% |
+| Italian (`it`)    | 99.51% | 97.34% |
+| Dutch (`nl`)      | 99.41% | 98.91% |
+| Portuguese (`pt`) | 99.67% | 99.60% |
 
-Italian gains the most (97.34% → 99.63%), closing the residual format variants `curtain-tiny` missed.
-Public retention is lowest in Dutch (95.57%) and highest in Portuguese (98.15%).
+Italian gains the most (97.34% → 99.51%), closing the residual format variants `curtain-tiny` missed.
+Public retention is lowest in Dutch (95.54%) and highest in Portuguese (97.91%).
 
 ### Person-name recall across all 24 languages
 
@@ -314,16 +314,30 @@ Every language reaches at least 95.9%:
 
 | Lang | recall | Lang | recall | Lang | recall | Lang | recall |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| en | 100.0% | fr | 100.0% | hr | 100.0% | es | 100.0% |
-| sv | 100.0% | da | 99.7% | nl | 99.7% | hu | 99.4% |
-| pl | 99.4% | lv | 99.4% | ms | 99.2% | id | 99.1% |
-| sl | 99.1% | fi | 99.0% | it | 99.0% | cs | 98.9% |
-| et | 98.9% | lt | 98.9% | ro | 98.9% | sk | 98.7% |
-| de | 98.6% | pt | 98.5% | tl | 97.3% | vi | 95.9% |
+| en | 100.0% | es | 100.0% | fr | 100.0% | hr | 100.0% |
+| sk | 100.0% | sv | 100.0% | pl | 99.7% | ro | 99.6% |
+| da | 99.4% | it | 99.4% | ms | 99.4% | sl | 99.4% |
+| cs | 99.3% | lt | 99.3% | nl | 99.3% | fi | 99.0% |
+| lv | 99.0% | de | 98.9% | et | 98.9% | hu | 98.8% |
+| pt | 98.8% | id | 98.5% | tl | 98.4% | vi | 95.9% |
 
-The worst two are Tagalog (97.3%) and Vietnamese (95.9%). Both are down slightly from `curtain-tiny`
-(tl 99.2%, vi 96.2%) while 21 of 24 languages improve and the worst-language floor rises from 95.4%
-(tiny) to 95.9%. Lithuanian, tiny's weakest at 95.4%, rises to 98.9%.
+The worst two are Vietnamese (95.9%) and Tagalog (98.4%). Both are down slightly from `curtain-tiny`
+(vi 96.2%, tl 99.2%) while most of the 24 languages improve and the worst-language floor rises from 95.4%
+(tiny) to 95.9%. Lithuanian, tiny's weakest at 95.4%, rises to 99.3%.
+
+### Speaker-label recall
+
+The `v2.1.0` retrain of `curtain-small` adds a Filipino speaker-label augmentation to the recipe
+(`--n-speaker 6000`). It targets an informal-chat convention the public corpus under-represents: a
+name carried by a speaker prefix (`Marites:`), a `(M)` / `(F)` marker, an endearment, or a repeated
+position, and it covers common-noun-homograph nicknames (`Princess`, `Boy`) that read as ordinary
+words. On the committed `eval/chat` gate, speaker-label recall rises from 75.0% to 95.4%, with
+salutation over-redaction at 0.00%.
+
+Precision held: real-157 keep-violation improved (2.44% to 1.46%), the seven-language European bench
+and the 24-language recall floor did not regress, and adversarial coverage stayed 157 of 157. The
+remaining leaks are the common-noun homographs (`Princess`, `Baby`, `Boy`) in sentence-initial
+position, where the nickname is indistinguishable from an ordinary word.
 
 ### Real-world corpus: 157 hand-authored en-US cases
 
@@ -331,7 +345,7 @@ A hand-authored corpus with format-valid fake PII, a normal and a messy tier, an
 landmines that must not be redacted:
 
 - **protected-rate 99.28%**
-- **keep-violation-rate 2.44%** (under the 3% over-redaction gate)
+- **keep-violation-rate 1.46%** (under the 3% over-redaction gate)
 
 The over-redactions are precision costs on a recall-first system (state names and order codes read as
 identifiers), under the gate.

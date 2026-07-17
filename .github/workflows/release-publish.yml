@@ -45,7 +45,8 @@ jobs:
       # what browser consumers run, whereas native onnxruntime over-redaction is
       # platform-specific (Linux differs from macOS). No browser is needed; ort-web
       # runs the model directly under bun. adversarial is a same-backend coverage
-      # comparison, so it is platform-robust on native cpu.
+      # comparison, so it is platform-robust on native cpu. eval:chat gates
+      # informal-chat speaker-label recall on self-contained fixtures (no data files).
       - name: Quality gates on the built artifact
         env:
           # Absolute path: transformers.js treats a bare name like "model" as a
@@ -53,6 +54,7 @@ jobs:
           CURTAIN_MODEL: ${{ github.workspace }}/model
         run: |
           bun run eval:wasm
+          bun run eval:chat
           bun run eval:adversarial
 
   # Gated by the hf-release environment: its required-reviewers rule pauses here
@@ -84,7 +86,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           # The moving pointer is the version without the build timestamp
-          # (v2.0.0-<ts> -> v2.0.0), so v2.0.0 tracks the latest curtain-small build
+          # (v2.1.0-<ts> -> v2.1.0), so v2.1.0 tracks the latest curtain-small build
           # while v1.0.0 (curtain-tiny) stays pinned to its own weights.
           MOVING_REF=$(echo "$TAG" | sed -E 's/-[0-9]{14}$//')
           uv run --with huggingface_hub --no-project python train/publish_hf.py \

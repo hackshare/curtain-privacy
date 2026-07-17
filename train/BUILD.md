@@ -97,16 +97,16 @@ XLM-R SentencePiece tokenizer. Start from the same fetched slice as Part A step 
 
 **1. Generate the augmentation set** (diverse Latin names, romanized-CJK and short
 names added on top, leading-subject narratives, messy formatting, synthesized
-government IDs, and keep-class negatives):
+government IDs, keep-class negatives, and Filipino speaker-label chat rows):
 
 ```sh
 cd train
 uv run python -m augment.build_augmentation \
   --base data/trainsplit-raw.jsonl --out data/aug.jsonl \
   --seed 1 --name-frac 0.6 --messy-frac 0.4 \
-  --n-govid 4000 --n-neg 18000 --n-narrative 10000 --n-cjk 40000
+  --n-govid 4000 --n-neg 18000 --n-narrative 10000 --n-cjk 40000 --n-speaker 6000
 ```
-Expected: `wrote <about 222000> augmentation rows -> data/aug.jsonl`. Time: a few minutes.
+Expected: `wrote <about 228000> augmentation rows -> data/aug.jsonl`. Time: a few minutes.
 
 **2. Combine** the base rows and the augmentation into one training set. The
 augmentation file is in the same raw schema as the fetch, so a concatenation is
@@ -228,10 +228,10 @@ This section documents how to publish the ship model to Hugging Face as a versio
 
 ```sh
 cd train
-uv run python cut_release.py --model runs/model-small --version 2.0.0
+uv run python cut_release.py --model runs/model-small --version 2.1.0
 ```
 
-This script creates the timestamped tag `v2.0.0-<ts>` and publishes a live
+This script creates the timestamped tag `v2.1.0-<ts>` and publishes a live
 prerelease immediately. No draft state is used. The `release: published` event
 fires as soon as the script finishes, which triggers
 `.github/workflows/release-publish.yml` automatically. That workflow:
@@ -244,8 +244,8 @@ fires as soon as the script finishes, which triggers
    a notification and must approve the deployment in GitHub Actions before
    publishing proceeds.
 4. On approval, publishes the artifact to `hackshare/curtain-privacy` on Hugging
-   Face at the timestamped tag `v2.0.0-<ts>` and advances the moving pointer `v2.0.0`.
+   Face at the timestamped tag `v2.1.0-<ts>` and advances the moving pointer `v2.1.0`.
 
-The moving `v2.0.0` pointer always points to the most recently published
+The moving `v2.1.0` pointer always points to the most recently published
 curtain-small build, and `v1.0.0` stays pinned to curtain-tiny. Callers who need
-an immutable pin should use the timestamped `v2.0.0-<ts>` (or `v1.0.0-<ts>`) tag.
+an immutable pin should use the timestamped `v2.1.0-<ts>` (or `v1.0.0-<ts>`) tag.

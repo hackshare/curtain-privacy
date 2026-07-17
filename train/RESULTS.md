@@ -543,3 +543,45 @@ a leak, and only affects native-cpu server consumers.
 Verdict: SHIP curtain-small as v2.0, with curtain-tiny frozen at v1.0.0 as the
 smallest-footprint tier. The capacity gap the all-Latin entry documented is closed,
 and the leading-, repeated-, and short-name leaks are gone.
+
+## Speaker-label retrain: curtain-small v2.1 (2026-07-16)
+
+curtain-small v2.0 protects names in prose but under-serves the informal-chat
+convention the public corpus barely covers: a name that appears only as a speaker
+prefix (`Marites:`), an `(M)`/`(F)` tag, an endearment, or a repeated position,
+including common-noun-homograph nicknames (`Princess`, `Boy`) that read as ordinary
+words. The committed `eval/chat` gate caught it: speaker-label recall sat at 75.0%.
+
+A prior ml2 candidate paired this speaker-label augmentation with title/date
+keep-negatives, but those negatives failed the real-157 keep-violation gate. This
+retrain revives the speaker-label augmentation only (`--n-speaker 6000`, 6,000
+synthesized chat rows) and drops the title/date negatives, then trains 3 epochs with
+the rest of the v2.0 recipe unchanged.
+
+| eval | metric | v2.0 | v2.1 (speaker-label) | note |
+| --- | --- | ---: | ---: | :--- |
+| eval/chat | speaker-label recall | 75.0% | 95.4% | up |
+| real-157 | protected | 99.28% | 99.28% | flat |
+| real-157 | keep_violation | 2.44% | 1.46% | improved |
+| bench-30k | protected | 98.37% | 98.34% | flat (within CI) |
+| bench-30k | public_retention | 96.71% | 97.00% | improved |
+| 24-lang | worst-language floor | 95.9% | 95.9% | held (Vietnamese) |
+| 24-lang | Tagalog | 97.3% | 98.4% | up |
+| fairness-300 | protected / keep_violation | 100.00% / 0.00% | 100.00% / 0.00% | flat |
+| adversarial | covered | 157/157 | 157/157 | flat |
+
+The augmentation lifts the chat gate (speaker-label recall 75.0% to 95.4%, salutation
+over-redaction 0.00%) while precision improves rather than regresses: real-157
+keep-violation drops from 2.44% to 1.46%. Nothing else moves against us. Bench
+protected stays flat inside its CI (98.37% to 98.34%), retention rises (96.71% to
+97.00%), the 24-language recall floor holds at 95.9% (Vietnamese) with Tagalog up from
+97.3% to 98.4%, fairness stays 100.00% / 0.00%, and adversarial coverage stays 157 of
+157. The chat leaks that remain are common-noun homographs (Princess, Baby, Boy) in
+sentence-initial position.
+
+The recipe now carries 3 decisive augmentation components rather than 2: keep-negatives
+(hold retention), leading/repeated-subject plus CJK/short-name (hold recall on the leak
+patterns), and now speaker-labels (chat / speaker-label recall).
+
+Verdict: SHIP as curtain-small v2.1.0, with curtain-tiny frozen at v1.0.0. The chat
+gate is closed and every other gate is flat or improved.

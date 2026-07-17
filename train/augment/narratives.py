@@ -8,7 +8,7 @@ exercised in subject position too."""
 from __future__ import annotations
 import random
 from faker import Faker
-from augment.names import sample_person_name, LOCALES
+from augment.names import sample_person_name, sample_filipino_name, LOCALES
 from augment.rows import build_from_parts, AUG_UID_BASE
 
 # Narrative uids sit above the swap/govid/negative ranges (base+0, +500k, +700k).
@@ -76,4 +76,38 @@ def synth_narrative_rows(seed: int, n: int) -> list[dict]:
         names = _sample_people(faker, rng)
         template = rng.choice(TEMPLATES)
         rows.append(build_from_parts(_NARRATIVE_UID_BASE + i, "en", _expand(template, names)))
+    return rows
+
+
+# Speaker-label uids sit above the narrative range.
+_SPEAKER_UID_BASE = AUG_UID_BASE + 1_300_000
+
+# Speaker-label / Filipino-chat templates: a name in speaker-prefix, endearment, or
+# repeated-subject position. This is the Tagalog convention that leaks (a first name
+# alone before ":" or "(M)", or a common-noun nickname like "Princess:"). Only g1/s1
+# are used, filled from the Filipino pool.
+SPEAKER_TEMPLATES = [
+    [("g1",), ": ", "Sige po, aandar na ako mamaya. Salamat!"],
+    [("g1",), " (M): ", "Tapos na ang report kahapon."],
+    [("g1",), " (F): ", "Nakatanggap ako ng bagong email ngayon."],
+    ["Mahal kong ", ("g1",), ", kumusta ka na diyan?"],
+    [("g1",), " ", ("s1",), ": ", "Naghihintay pa rin kami sa opisina."],
+    ["Kontakin si ", ("g1",), " ", ("s1",), " para sa mga detalye."],
+    [("g1",), ": Oo, pwede. ", ("g1",), ": Sige, pupunta ako."],
+    ["Mga sangkot: ", ("g1",), " (M), ", ("g1",), " (M). Kailangan ng follow-up."],
+    ["Dear ", ("g1",), " ", ("s1",), ", salamat sa iyong sulat kahapon."],
+    ["11:33 ", ("g1",), ": Mag-check muna tayo bukas."],
+]
+
+
+def synth_speaker_rows(seed: int, n: int) -> list[dict]:
+    """`n` Filipino speaker-label / chat rows: a name in speaker-prefix, endearment,
+    or repeated-subject position, the Tagalog convention that leaks in chat text.
+    Deterministic under `seed`."""
+    rng = random.Random(seed)
+    rows = []
+    for i in range(n):
+        names = {"g1": sample_filipino_name(rng, "GIVENNAME"), "s1": sample_filipino_name(rng, "SURNAME")}
+        template = rng.choice(SPEAKER_TEMPLATES)
+        rows.append(build_from_parts(_SPEAKER_UID_BASE + i, "tl", _expand(template, names)))
     return rows

@@ -53,6 +53,29 @@ def sample_person_name(faker: Faker, rng: random.Random, label: str, curated_fra
     return faker.first_name() if given else faker.last_name()
 
 
+# Filipino given names and nicknames, including the common-noun homographs
+# (Princess, Baby, Boy, Girlie) and speaker-label nicknames the OpenPII Tagalog
+# chat data uses. These leak because they are ordinary words; placing them in
+# name/speaker position teaches the contextual boundary.
+_CURATED_FILIPINO_GIVEN = [
+    "Princess", "Baby", "Boy", "Girlie", "Totoy", "Nene", "Inday", "Dodong",
+    "Bong", "Jun", "Noel", "Jomar", "Rowena", "Consolación", "Divina", "Rizza",
+    "Marites", "Dranreb", "Jayvee", "Ping", "Bogart", "Junjun", "Dwarding",
+    "Ligaya", "Luningning", "Bayani", "Amihan", "Reynaldo", "Ederlyn",
+]
+_CURATED_FILIPINO_SURNAME = [
+    "Cruz", "Reyes", "Santos", "Bautista", "Aquino", "Mendoza", "Panganiban",
+    "Dela Cruz", "Bacani", "Villanueva", "Magsaysay", "Dimaculangan", "Aguinaldo",
+    "Macaraeg", "Pagcaliwagan", "Tanjuatco", "Sumulong",
+]
+
+
+def sample_filipino_name(rng: random.Random, label: str) -> str:
+    """A Filipino given or surname from the curated pool, for the speaker-label
+    narratives that target the Tagalog chat conventions."""
+    return rng.choice(_CURATED_FILIPINO_GIVEN if label == "GIVENNAME" else _CURATED_FILIPINO_SURNAME)
+
+
 def _swap(row: dict, seed: int, pick) -> dict:
     """Replace each person-span value via pick(faker, rng, label), recomputing all
     offsets from the running length delta. Non-person spans are copied verbatim."""
