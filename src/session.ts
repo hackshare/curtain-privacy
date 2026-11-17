@@ -112,7 +112,9 @@ export class SessionEntityTable {
     const placeholders: string[] = [];
     let text = raw;
     for (const span of redactable) {
-      const token = this.placeholderFor(span.label, span.text);
+      // Merging can widen offsets while retaining the winning span's shorter text.
+      // Store the original interval that is actually being replaced.
+      const token = this.placeholderFor(span.label, raw.slice(span.start, span.end));
       placeholders.push(token);
       text = `${text.slice(0, span.start)}${token}${text.slice(span.end)}`;
     }
